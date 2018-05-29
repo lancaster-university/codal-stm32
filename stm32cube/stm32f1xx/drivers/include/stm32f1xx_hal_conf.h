@@ -103,7 +103,7 @@
  *  stm32f1xx_hal_i2c.h:579:0:  this is the location of the previous definition
  *
  */
-#if 0
+#if 1 // REVERTED
 #define HAL_I2C_MODULE_ENABLED
 #endif
 

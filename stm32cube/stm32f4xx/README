@@ -36,7 +36,7 @@ License Link:
 
 Patch List:
 
-   *Disable i2c HAL
+   *Disable i2c HAL - REVERTED
      Due to conflict with zephyr i2c.h (I2C_SPEED_STANDARD and I2C_SPEED_FAST
      redefinition), deactivate STM32Cube I2C HAL. This raises no issue since
      LL API is currently used for stm32 I2C driver.

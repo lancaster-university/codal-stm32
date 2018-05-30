@@ -40,7 +40,6 @@ DEALINGS IN THE SOFTWARE.
     (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)
 
 #if CONFIG_SOC_FAMILY_STM32
-#define PORTPINS 16
 static const char *portNames[] = {
     "GPIOA", "GPIOB", "GPIOC", "GPIOD", "GPIOE", "GPIOF", "GPIOG", "GPIOH",
 };
@@ -49,6 +48,7 @@ static const char *portNames[] = {
 #error "SOC family for pin not defined"
 #endif
 
+#define PORTPINS GPIO_NUMBER
 #define PINMASK (PORTPINS - 1)
 
 namespace codal

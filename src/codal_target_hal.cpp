@@ -19,7 +19,7 @@ void target_wait_for_event()
 
 void target_wait(uint32_t milliseconds)
 {
-    wait_ms(milliseconds);
+    HAL_Delay(milliseconds);
 }
 
 void target_reset()

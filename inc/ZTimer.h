@@ -8,14 +8,15 @@ namespace codal
 {
 class ZTimer : public codal::Timer
 {
-    u32_t prev;
-    k_timer timer;
-    static void callback(k_timer *tm);
+    uint32_t prev;
+    TIM_HandleTypeDef TimHandle;
 public:
     ZTimer();
+    static ZTimer *instance;
+    void init();
     virtual void triggerIn(CODAL_TIMESTAMP t);
     virtual void syncRequest();
 };
-}
+} // namespace codal
 
 #endif

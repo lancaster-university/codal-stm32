@@ -39,28 +39,14 @@ DEALINGS IN THE SOFTWARE.
 #define IO_STATUS_CAN_READ                                                                         \
     (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)
 
-#if CONFIG_SOC_FAMILY_STM32
-static const char *portNames[] = {
-    "GPIOA", "GPIOB", "GPIOC", "GPIOD", "GPIOE", "GPIOF", "GPIOG", "GPIOH",
-};
-#define NUM_PORTS (sizeof(portNames) / sizeof(portNames[0]))
-#else
-#error "SOC family for pin not defined"
-#endif
-
 #define PORTPINS GPIO_NUMBER
 #define PINMASK (PORTPINS - 1)
 
+#define GPIO_PORT() ((GPIO_TypeDef *)(GPIOA_BASE + 0x400 * ((int)name >> 4)))
+#define GPIO_PIN() (1 << ((uint32_t)name & 0xf))
+
 namespace codal
 {
-
-struct ZPwmConfig
-{
-    struct device *pwm;
-    u32_t period;
-    u32_t pulse;
-    uint8_t channel;
-};
 
 struct ZEventConfig
 {
@@ -74,14 +60,14 @@ inline int map(codal::PullMode pinMode)
     switch (pinMode)
     {
     case PullMode::Up:
-        return GPIO_PUD_PULL_UP;
+        return GPIO_PULLUP;
     case PullMode::Down:
-        return GPIO_PUD_PULL_DOWN;
+        return GPIO_PULLDOWN;
     case PullMode::None:
-        return GPIO_PUD_NORMAL;
+        return GPIO_NOPULL;
     }
 
-    return GPIO_PUD_NORMAL;
+    return GPIO_NOPULL;
 }
 
 /**
@@ -107,16 +93,14 @@ ZPin::ZPin(int id, PinNumber name, PinCapability capability) : codal::Pin(id, na
     // Power up in a disconnected, low power state.
     // If we're unused, this is how it will stay...
     this->status = 0x00;
-    unsigned portNo = (unsigned)name / PORTPINS;
-    CODAL_ASSERT(portNo < NUM_PORTS);
-    this->port = device_get_binding(portNames[portNo]);
-    CODAL_ASSERT(this->port);
 
     this->pwmCfg = NULL;
 }
 
 void ZPin::config(int status)
 {
+    memset(&init, 0, sizeof(init));
+
     int flags = 0;
     int pin = this->name & PINMASK;
 
@@ -143,15 +127,19 @@ void ZPin::config(int status)
 
     this->status = status;
 
+    int mode = STM_PIN_INPUT;
+    int pull = GPIO_NOPULL;
+
     if (status & IO_STATUS_DIGITAL_OUT)
-        flags |= GPIO_DIR_OUT;
-    else if (status & IO_STATUS_DIGITAL_IN)
-        flags |= GPIO_DIR_IN;
+        mode = STM_PIN_OUTPUT;
+    else if (this->status & IO_STATUS_ANALOG_IN)
+        mode = STM_PIN_ANALOG;
 
     if (status & IO_STATUS_CAN_READ)
-        flags |= map(this->pullMode);
+        pull = map(this->pullMode);
+    
+    pin_function(name, STM_PIN_DATA(mode, pull, 0));
 
-    gpio_pin_configure(this->port, pin, flags);
 }
 
 /**
@@ -169,10 +157,6 @@ void ZPin::config(int status)
  */
 int ZPin::setDigitalValue(int value)
 {
-    // Check if this pin has a digital mode...
-    if (!(PIN_CAPABILITY_DIGITAL & capability))
-        return DEVICE_NOT_SUPPORTED;
-
     // Ensure we have a valid value.
     if (value < 0 || value > 1)
         return DEVICE_INVALID_PARAMETER;
@@ -183,7 +167,9 @@ int ZPin::setDigitalValue(int value)
         config(IO_STATUS_DIGITAL_OUT);
     }
 
-    return gpio_pin_write(port, name & PINMASK, value);
+    HAL_GPIO_WritePin(GPIO_PORT(), GPIO_PIN(), value);
+
+    return DEVICE_OK;
 }
 
 /**
@@ -200,20 +186,13 @@ int ZPin::setDigitalValue(int value)
  */
 int ZPin::getDigitalValue()
 {
-    // check if this pin has a digital mode...
-    if (!(PIN_CAPABILITY_DIGITAL & capability))
-        return DEVICE_NOT_SUPPORTED;
-
     // Move into a Digital input state if necessary.
     if (!(status & IO_STATUS_CAN_READ))
     {
         config(IO_STATUS_DIGITAL_IN);
     }
 
-    u32_t v = 0;
-    gpio_pin_read(port, name & PINMASK, &v);
-
-    return v;
+    return HAL_GPIO_ReadPin(GPIO_PORT(), GPIO_PIN());
 }
 
 /**
@@ -242,18 +221,8 @@ int ZPin::obtainAnalogChannel()
     if (!(status & IO_STATUS_ANALOG_OUT))
     {
         this->config(0);
-        auto cfg = this->pwmCfg = new ZPwmConfig;
-        cfg->period = DEVICE_DEFAULT_PWM_PERIOD; // 20ms
-        cfg->pulse = 0;                          // 0%
-        int chan;
-        if (pinmux_setup_pwm(this->name, &cfg->pwm, &chan))
-            return DEVICE_INVALID_PARAMETER;
-        if (chan < 0)
-        {
-            chan = -chan;
-            // TODO what to do about inverted channels?
-        }
-        cfg->channel = chan;
+        auto cfg = this->pwmCfg = new pwmout_t;
+        pwmout_init(cfg, name);
         status = IO_STATUS_ANALOG_OUT;
     }
 
@@ -262,10 +231,6 @@ int ZPin::obtainAnalogChannel()
 
 int ZPin::setPWM(u32_t value, u32_t period)
 {
-    // check if this pin has an analogue mode...
-    if (!(PIN_CAPABILITY_DIGITAL & capability))
-        return DEVICE_NOT_SUPPORTED;
-
     // sanitise the level value
     if (value > period)
         value = period;
@@ -275,10 +240,11 @@ int ZPin::setPWM(u32_t value, u32_t period)
 
     auto cfg = this->pwmCfg;
 
-    cfg->pulse = value;
-    cfg->period = period;
+    if (cfg->period != period)
+        pwmout_period_us(cfg, period);
+    pwmout_write(cfg, value);
 
-    return pwm_pin_set_usec(cfg->pwm, cfg->channel, cfg->period, cfg->pulse);
+    return DEVICE_OK;
 }
 
 /**
@@ -603,6 +569,8 @@ void ZPin::eventCallback(struct device *port, struct gpio_callback *cb, u32_t pi
  */
 int ZPin::enableRiseFallEvents(int eventType)
 {
+    LL_SYSCFG_SetEXTISource();
+
     // if we are in neither of the two modes, configure pin as a TimedInterruptIn.
     if (!(status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)))
     {

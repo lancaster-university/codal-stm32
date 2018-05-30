@@ -42,7 +42,6 @@ DEALINGS IN THE SOFTWARE.
 namespace codal
 {
 
-struct ZPwmConfig;
 struct ZEventConfig;
 
 class ZPin : public codal::Pin
@@ -50,7 +49,7 @@ class ZPin : public codal::Pin
 protected:
     struct device *port;
     union {
-        ZPwmConfig *pwmCfg;
+        pwmout_t *pwmCfg;
         ZEventConfig *evCfg;
         Button *btn;
     };

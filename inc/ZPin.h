@@ -48,7 +48,6 @@ struct ZEventConfig;
 class ZPin : public codal::Pin
 {
 protected:
-    struct device *port;
     union {
         pwmout_t *pwmCfg;
         ZEventConfig *evCfg;

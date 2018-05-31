@@ -253,8 +253,11 @@ int ZPin::setAnalogValue(int value)
     if (value < 0 || value > DEVICE_PIN_MAX_OUTPUT)
         return DEVICE_INVALID_PARAMETER;
 
-    return setPWM((uint64_t)value * this->pwmCfg->period / DEVICE_PIN_MAX_OUTPUT,
-                  this->pwmCfg->period);
+    uint32_t period = 20000;
+    if (status & IO_STATUS_ANALOG_OUT)
+        period = this->pwmCfg->period;
+
+    return setPWM((uint64_t)value * period / DEVICE_PIN_MAX_OUTPUT, period);
 }
 
 /**
@@ -431,8 +434,11 @@ int ZPin::setServoPulseUs(int pulseWidth)
  */
 int ZPin::setAnalogPeriodUs(int period)
 {
-    // keep the % of duty cycle
-    return setPWM((uint64_t)this->pwmCfg->pulse * period / this->pwmCfg->period, period);
+    if (status & IO_STATUS_ANALOG_OUT)
+        // keep the % of duty cycle
+        return setPWM((uint64_t)this->pwmCfg->pulse * period / this->pwmCfg->period, period);
+    else
+        return setPWM(0, period);
 }
 
 /**
@@ -546,7 +552,8 @@ DEF(EXTI4_IRQHandler)
 DEF(EXTI9_5_IRQHandler)
 DEF(EXTI15_10_IRQHandler)
 
-static void enable_irqs() {
+static void enable_irqs()
+{
     NVIC_EnableIRQ(EXTI0_IRQn);
     NVIC_EnableIRQ(EXTI1_IRQn);
     NVIC_EnableIRQ(EXTI2_IRQn);

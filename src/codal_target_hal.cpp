@@ -27,6 +27,11 @@ void target_reset()
     NVIC_SystemReset();
 }
 
+extern "C" void assert_failed(uint8_t* file, uint32_t line)
+{
+    target_panic(920);
+}
+
 void target_panic(int statusCode)
 {
     target_disable_irq();
@@ -37,10 +42,11 @@ void target_panic(int statusCode)
     }
 }
 
+extern "C" void init_irqs();
 void target_init()
 {
     HAL_Init();
-
+    init_irqs();
 }
 
 /**

@@ -59,4 +59,9 @@
 #define PH_0 0x70
 #define PH_1 0x71
 
+#define ADC_TEMP 0xF0
+#define ADC_VREF 0xF1
+#define ADC_VBAT 0xF2
+
+
 #endif

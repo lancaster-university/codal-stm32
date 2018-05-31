@@ -27,5 +27,6 @@ void target_panic(int statusCode);
 
 #define MBED_ASSERT CODAL_ASSERT
 #define error(msg) CODAL_ASSERT(0)
+#define MBED_WEAK __attribute__((weak))
 
 #endif

@@ -1,23 +1,11 @@
 #include "dma.h"
 
-#define DMA_RX 1
-#define DMA_TX 2
-
 #define NUM_STREAMS 8
 #define NUM_DMA 2
 
 typedef struct
 {
-    uint32_t peripheral; // SPI1_BASE etc
-    uint8_t rxdx;        // 1 rx, 2 tx
-    uint8_t dma;         // 1 or 2
-    uint8_t stream;
-    uint8_t channel;
-} DmaMap;
-
-typedef struct
-{
-    DMA_Channel_TypeDef *instance;
+    DMA_Stream_TypeDef *instance;
     uint8_t irqn;
 } DmaStream;
 
@@ -96,10 +84,12 @@ DEFIRQ(DMA2_Stream7_IRQHandler, NUM_STREAMS + 7)
 
 int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj)
 {
-    memset(obj, 0, *obj);
-    
+    memset(obj, 0, sizeof(*obj));
+
     int id;
-    for (auto map = TheDmaMap; map->peripheral; map++)
+    const DmaMap *map;
+
+    for (map = TheDmaMap; map->peripheral; map++)
     {
         if (map->peripheral == peripheral && map->rxdx == rxdx)
         {
@@ -137,7 +127,7 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj)
 
     HAL_DMA_Init(obj);
 
-    // __HAL_LINKDMA(hspi, hdmarx, hdma_rx);
-
     NVIC_EnableIRQ(streams[map->stream].irqn);
+
+    return 0;
 }

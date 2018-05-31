@@ -43,13 +43,27 @@ struct SPI_HandleWithParent : public SPI_HandleTypeDef
 class ZSPI : public codal::SPI
 {
 protected:
+    Pin *mosi, *miso, *sclk;
+    uint32_t freq;
+
     SPI_HandleWithParent spi;
     DMA_HandleTypeDef hdma_tx;
     DMA_HandleTypeDef hdma_rx;
 
+    PVoidCallback doneHandler;
+    void *doneHandlerArg;
+
+    bool needsInit;
     uint8_t rxCh, txCh;
+    uint16_t transferCompleteEventCode;
+
+    void complete();
+    void init();
 
 public:
+    static void _complete(uint32_t instance);
+    static void _irq(uint32_t instance);
+
     /**
      * Initialize SPI instance with given pins.
      *
@@ -96,6 +110,9 @@ public:
      */
     virtual int transfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuffer,
                          uint32_t rxSize);
+
+    virtual int startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuffer,
+                              uint32_t rxSize, PVoidCallback doneHandler, void *arg);
 };
 } // namespace codal
 

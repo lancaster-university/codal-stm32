@@ -6,6 +6,9 @@
 extern "C" {
 #endif
 
+#define DMA_RX 1
+#define DMA_TX 2
+
 typedef struct
 {
     uint32_t peripheral; // SPI1_BASE etc

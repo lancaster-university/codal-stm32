@@ -27,9 +27,38 @@ DEALINGS IN THE SOFTWARE.
 #include "ErrorNo.h"
 #include "CodalDmesg.h"
 #include "codal-core/inc/driver-models/Timer.h"
+#include "MessageBus.h"
+#include "Event.h"
+#include "CodalFiber.h"
+
+#include "dma.h"
+#include "pinmap.h"
+#include "PeripheralPins.h"
+
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 
 namespace codal
 {
+
+static const uint32_t baudprescaler[] = //
+    {SPI_BAUDRATEPRESCALER_2,
+     2,
+     SPI_BAUDRATEPRESCALER_4,
+     4,
+     SPI_BAUDRATEPRESCALER_8,
+     8,
+     SPI_BAUDRATEPRESCALER_16,
+     16,
+     SPI_BAUDRATEPRESCALER_32,
+     32,
+     SPI_BAUDRATEPRESCALER_64,
+     64,
+     SPI_BAUDRATEPRESCALER_128,
+     128,
+     SPI_BAUDRATEPRESCALER_256,
+     256,
+     0,
+     0};
 
 static ZSPI *instances[4];
 
@@ -42,23 +71,142 @@ static inline uint32_t setup(Pin *p, uint32_t prev, const PinMap *map)
     auto pin = p->name;
     uint32_t tmp = pinmap_peripheral(pin, map);
     pin_function(pin, pinmap_function(pin, map));
-    CODAL_ASSERT(tmp == instance);
+    CODAL_ASSERT(!prev || prev == tmp);
+    return tmp;
 }
 
-/**
- * Constructor.
- */
-ZSPI::ZSPI(Pin *mosi, Pin *miso, Pin *sclk) : codal::SPI()
+static int enable_clock(uint32_t instance)
 {
-    uint32_t instance = setup(sclk, 0, PinMap_SPI_SCLK);
-    instance = setup(miso, 0, PinMap_SPI_MISO);
-    instance = setup(mosi, 0, PinMap_SPI_MOSI);
+    switch (instance)
+    {
+    case SPI1_BASE:
+        __HAL_RCC_SPI1_CLK_ENABLE();
+        NVIC_EnableIRQ(SPI1_IRQn);
+        return HAL_RCC_GetPCLK2Freq();
+    case SPI2_BASE:
+        __HAL_RCC_SPI2_CLK_ENABLE();
+        NVIC_EnableIRQ(SPI2_IRQn);
+        return HAL_RCC_GetPCLK1Freq();
+#ifdef SPI3_BASE
+    case SPI3_BASE:
+        __HAL_RCC_SPI3_CLK_ENABLE();
+        NVIC_EnableIRQ(SPI3_IRQn);
+        return HAL_RCC_GetPCLK1Freq();
+#endif
+#ifdef SPI4_BASE
+    case SPI4_BASE:
+        __HAL_RCC_SPI4_CLK_ENABLE();
+        NVIC_EnableIRQ(SPI4_IRQn);
+        return HAL_RCC_GetPCLK2Freq();
+#endif
+#ifdef SPI5_BASE
+    case SPI5_BASE:
+        __HAL_RCC_SPI5_CLK_ENABLE();
+        NVIC_EnableIRQ(SPI5_IRQn);
+        return HAL_RCC_GetPCLK2Freq();
+#endif
+#ifdef SPI6_BASE
+    case SPI6_BASE:
+        __HAL_RCC_SPI6_CLK_ENABLE();
+        NVIC_EnableIRQ(SPI6_IRQn);
+        return HAL_RCC_GetPCLK2Freq();
+#endif
 
-    spi.Instance = (SPI_TypeDef *)instance;
-    spi.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
+    default:
+        CODAL_ASSERT(0);
+        return 0;
+    }
+    return 0;
+}
+
+void ZSPI::complete()
+{
+    if (doneHandler)
+    {
+        PVoidCallback done = doneHandler;
+        doneHandler = NULL;
+        done(doneHandlerArg);
+    }
+    else
+    {
+        Event(DEVICE_ID_NOTIFY_ONE, transferCompleteEventCode);
+    }
+}
+
+void ZSPI::_complete(uint32_t instance)
+{
+    for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
+    {
+        if (instances[i] && (uint32_t)instances[i]->spi.Instance == instance)
+        {
+            instances[i]->complete();
+            break;
+        }
+    }
+}
+
+void ZSPI::_irq(uint32_t instance)
+{
+    for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
+    {
+        if (instances[i] && (uint32_t)instances[i]->spi.Instance == instance)
+        {
+            HAL_SPI_IRQHandler(&instances[i]->spi);
+            break;
+        }
+    }
+}
+
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
+{
+    ZSPI::_complete((uint32_t)hspi->Instance);
+}
+
+void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
+{
+    ZSPI::_complete((uint32_t)hspi->Instance);
+}
+
+void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi)
+{
+    ZSPI::_complete((uint32_t)hspi->Instance);
+}
+
+#define DEFIRQ(nm, id)                                                                             \
+    void nm() { ZSPI::_irq(id); }
+
+DEFIRQ(SPI1_IRQHandler, SPI1_BASE)
+DEFIRQ(SPI2_IRQHandler, SPI2_BASE)
+#ifdef SPI3_BASE
+DEFIRQ(SPI3_IRQHandler, SPI3_BASE)
+#endif
+#ifdef SPI4_BASE
+DEFIRQ(SPI4_IRQHandler, SPI4_BASE)
+#endif
+#ifdef SPI5_BASE
+DEFIRQ(SPI5_IRQHandler, SPI5_BASE)
+#endif
+#ifdef SPI6_BASE
+DEFIRQ(SPI6_IRQHandler, SPI6_BASE)
+#endif
+
+void ZSPI::init()
+{
+    if (!needsInit)
+        return;
+
+    needsInit = false;
+
+    if (!spi.Instance)
+    {
+        uint32_t instance = setup(sclk, 0, PinMap_SPI_SCLK);
+        instance = setup(miso, 0, PinMap_SPI_MISO);
+        instance = setup(mosi, 0, PinMap_SPI_MOSI);
+
+        spi.Instance = (SPI_TypeDef *)instance;
+    }
+
     spi.Init.Direction = SPI_DIRECTION_2LINES;
-    spi.Init.CLKPhase = SPI_PHASE_1EDGE;
-    spi.Init.CLKPolarity = SPI_POLARITY_HIGH;
     spi.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
     spi.Init.CRCPolynomial = 7;
     spi.Init.DataSize = SPI_DATASIZE_8BIT;
@@ -67,22 +215,43 @@ ZSPI::ZSPI(Pin *mosi, Pin *miso, Pin *sclk) : codal::SPI()
     spi.Init.TIMode = SPI_TIMODE_DISABLE;
     spi.Init.Mode = SPI_MODE_MASTER;
 
-    if (HAL_SPI_Init(&spi) != HAL_OK)
+    if (mosi && !hdma_tx.Instance)
     {
-        /* Initialization Error */
-        Error_Handler();
+        dma_init((uint32_t)spi.Instance, DMA_TX, &hdma_tx);
+        __HAL_LINKDMA(&spi, hdmatx, hdma_tx);
     }
 
-    if (HAL_SPI_TransmitReceive_DMA(&spi, (uint8_t *)aTxBuffer, (uint8_t *)aRxBuffer, BUFFERSIZE) !=
-        HAL_OK)
+    if (miso && !hdma_rx.Instance)
     {
-        /* Transfer error in transmission process */
-        Error_Handler();
+        dma_init((uint32_t)spi.Instance, DMA_RX, &hdma_rx);
+        __HAL_LINKDMA(&spi, hdmarx, hdma_rx);
     }
 
-    while (HAL_SPI_GetState(&spi) != HAL_SPI_STATE_READY)
+    auto pclkHz = enable_clock((uint32_t)spi.Instance);
+
+    for (int i = 0; baudprescaler[i]; i += 2)
     {
+        if (pclkHz / baudprescaler[i + 1] > freq)
+            break;
+        spi.Init.BaudRatePrescaler = baudprescaler[i];
     }
+
+    auto res = HAL_SPI_Init(&spi);
+    CODAL_ASSERT(res == HAL_OK);
+}
+
+ZSPI::ZSPI(Pin *mosi, Pin *miso, Pin *sclk) : codal::SPI()
+{
+    this->mosi = mosi;
+    this->miso = miso;
+    this->sclk = sclk;
+
+    ZERO(spi);
+    ZERO(hdma_tx);
+    ZERO(hdma_rx);
+
+    this->needsInit = true;
+    this->transferCompleteEventCode = codal::allocateNotifyEvent();
 
     for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
     {
@@ -91,50 +260,24 @@ ZSPI::ZSPI(Pin *mosi, Pin *miso, Pin *sclk) : codal::SPI()
     }
 }
 
-/** Set the frequency of the SPI interface
- *
- * @param frequency The bus frequency in hertz
- */
 int ZSPI::setFrequency(uint32_t frequency)
 {
-    config.frequency = frequency;
+    freq = frequency;
+    needsInit = true;
     return DEVICE_OK;
 }
 
-/** Set the mode of the SPI interface
- *
- * @param mode Clock polarity and phase mode (0 - 3)
- * @param bits Number of bits per SPI frame (4 - 16)
- *
- * @code
- * mode | POL PHA
- * -----+--------
- *   0  |  0   0
- *   1  |  0   1
- *   2  |  1   0
- *   3  |  1   1
- * @endcode
- */
 int ZSPI::setMode(int mode, int bits)
 {
-    config.operation = SPI_OP_MODE_MASTER | SPI_TRANSFER_MSB | SPI_WORD_SET(8) | SPI_LINES_SINGLE;
+    spi.Init.CLKPhase = mode & 1 ? SPI_PHASE_2EDGE : SPI_PHASE_1EDGE;
+    spi.Init.CLKPolarity = mode & 2 ? SPI_POLARITY_HIGH : SPI_POLARITY_LOW;
+    needsInit = true;
 
-    if (mode & 1)
-        config.operation |= SPI_MODE_CPHA;
-    if (mode & 2)
-        config.operation |= SPI_MODE_CPOL;
+    CODAL_ASSERT(bits == 8);
 
     return DEVICE_OK;
 }
 
-/**
- * Writes the given byte to the SPI bus.
- *
- * The CPU will wait until the transmission is complete.
- *
- * @param data The data to write.
- * @return Response from the SPI slave or DEVICE_SPI_ERROR if the the write request failed.
- */
 int ZSPI::write(int data)
 {
     rxCh = 0;
@@ -144,106 +287,43 @@ int ZSPI::write(int data)
     return rxCh;
 }
 
-void ZSPI::dma_callback(struct device *dev, u32_t id, int error_code)
-{
-    for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
-    {
-        if (instances[i] && instances[i]->dma == dev && instances[i]->dma_chan_id == id)
-        {
-            k_sem_give(&instances[i]->dma_done);
-            break;
-        }
-    }
-}
-
-/**
- * Writes and reads from the SPI bus concurrently. Waits (possibly un-scheduled) for transfer to
- * finish.
- *
- * Either buffer can be NULL.
- */
 int ZSPI::transfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuffer, uint32_t rxSize)
 {
-#ifdef CONFIG_SOC_SERIES_STM32F4X
-    // if nothing to read, and we already did some writes, try DMA!
-    if (!rxBuffer && txBuf.buf)
+    fiber_wake_on_event(DEVICE_ID_NOTIFY_ONE, transferCompleteEventCode);
+    auto res = startTransfer(txBuffer, txSize, rxBuffer, rxSize, NULL, NULL);
+    schedule();
+    return res;
+}
+
+int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuffer,
+                        uint32_t rxSize, PVoidCallback doneHandler, void *arg)
+{
+    int res;
+
+    init();
+
+    this->doneHandler = doneHandler;
+    this->doneHandlerArg = arg;
+
+    if (txSize && rxSize)
     {
-        auto spi = ((spi_stm32_config *)dev->config->config_info)->spi;
-
-        dma_cfg.channel_direction = MEMORY_TO_PERIPHERAL;
-        dma_cfg.source_data_size = 1;
-        dma_cfg.dest_data_size = 1;
-        dma_cfg.source_burst_length = 1;
-        dma_cfg.dest_burst_length = 1;
-        dma_cfg.dma_callback = ZSPI::dma_callback;
-        dma_cfg.complete_callback_en = 0; // callback at the end only
-        dma_cfg.error_callback_en = 1;    // no error callback
-        dma_cfg.block_count = 1;
-        dma_cfg.head_block = &dma_block_cfg;
-
-        dma_block_cfg.block_size = txSize;
-        dma_block_cfg.source_address = (u32_t)txBuffer;
-        dma_block_cfg.dest_address = (u32_t)&spi->DR;
-
-        if (!dma)
-        {
-            if (spi == SPI1)
-            {
-                dma = device_get_binding("DMA_2");
-                dma_chan_id = 3;
-                // chan 3
-            }
-            else if (spi == SPI2)
-            {
-                dma = device_get_binding("DMA_1");
-                dma_chan_id = 4;
-                // chan 0
-            }
-            else if (spi == SPI3)
-            {
-                dma = device_get_binding("DMA_1");
-                dma_chan_id = 5;
-                // chan 0
-            }
-            else
-            {
-                CODAL_ASSERT(0);
-            }
-        }
-
-        // dma_chan_id is reall STM32 stream
-
-        if (dma_config(dma, dma_chan_id, &dma_cfg))
-        {
-            return DEVICE_SPI_ERROR;
-        }
-
-        if (dma_start(dma, dma_chan_id))
-        {
-            return DEVICE_SPI_ERROR;
-        }
-
-        // enable SPI if not done yet
-        if (!(spi->CR1 & SPI_CR1_SPE))
-            spi->CR1 |= SPI_CR1_SPE;
-
-        // Enable the SPI Error Interrupt Bit
-        spi->CR2 |= SPI_CR2_ERRIE;
-
-        // Enable Tx DMA Request
-        spi->CR2 |= SPI_CR2_TXDMAEN;
-
-        k_sem_take(&dma_done, K_FOREVER);
-
-        return DEVICE_OK;
+        CODAL_ASSERT(txSize == rxSize); // we could support this if needed
+        res = HAL_SPI_TransmitReceive_DMA(&spi, (uint8_t *)txBuffer, rxBuffer, txSize);
     }
-#endif
-    rxBuf.buf = rxBuffer;
-    rxBuf.len = rxSize;
-    txBuf.buf = (uint8_t *)txBuffer;
-    txBuf.len = txSize;
-    if (spi_transceive(dev, &config, txSize ? &txBufSet : NULL, rxSize ? &rxBufSet : NULL) < 0)
-        return DEVICE_SPI_ERROR;
+    else if (txSize)
+    {
+        res = HAL_SPI_Transmit_DMA(&spi, (uint8_t *)txBuffer, txSize);
+    }
+    else if (rxSize)
+    {
+        res = HAL_SPI_Receive_DMA(&spi, rxBuffer, rxSize);
+    }
+    else
+    {
+        return 0; // nothing to do
+    }
+
+    CODAL_ASSERT(res == HAL_OK);
 
     return 0;
 }

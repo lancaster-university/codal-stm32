@@ -33,7 +33,6 @@ DEALINGS IN THE SOFTWARE.
 #include "Timer.h"
 #include "codal_target_hal.h"
 #include "codal-core/inc/types/Event.h"
-#include "pwm.h"
 #include "board_pinmux.h"
 
 #define IO_STATUS_CAN_READ                                                                         \
@@ -48,11 +47,11 @@ DEALINGS IN THE SOFTWARE.
 namespace codal
 {
 
+static ZPin *eventPin[16];
+
 struct ZEventConfig
 {
-    struct gpio_callback callback;
     CODAL_TIMESTAMP prevPulse;
-    ZPin *parent;
 };
 
 inline int map(codal::PullMode pinMode)
@@ -112,9 +111,7 @@ void ZPin::config(int status)
 
     if (this->status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE))
     {
-        CODAL_ASSERT(this->evCfg->parent == this);
-        gpio_pin_disable_callback(this->port, pin);
-        gpio_remove_callback(this->port, &this->evCfg->callback);
+        EXTI->IMR &= ~GPIO_PIN();
         delete this->evCfg;
         this->evCfg = NULL;
     }
@@ -137,9 +134,8 @@ void ZPin::config(int status)
 
     if (status & IO_STATUS_CAN_READ)
         pull = map(this->pullMode);
-    
-    pin_function(name, STM_PIN_DATA(mode, pull, 0));
 
+    pin_function(name, STM_PIN_DATA(mode, pull, 0));
 }
 
 /**
@@ -520,42 +516,48 @@ void ZPin::pulseWidthEvent(int eventValue)
     this->evCfg->prevPulse = now;
 }
 
-/**
- * Interrupt handler for when an rise interrupt is triggered.
- */
-void ZPin::onRise()
+void ZPin::eventCallback()
 {
+    bool isRise = HAL_GPIO_ReadPin(GPIO_PORT(), GPIO_PIN());
+
     if (status & IO_STATUS_EVENT_PULSE_ON_EDGE)
-        pulseWidthEvent(DEVICE_PIN_EVT_PULSE_LO);
+        pulseWidthEvent(isRise ? DEVICE_PIN_EVT_PULSE_LO : DEVICE_PIN_EVT_PULSE_HI);
 
     if (status & IO_STATUS_EVENT_ON_EDGE)
-        Event(id, DEVICE_PIN_EVT_RISE);
+        Event(id, isRise ? DEVICE_PIN_EVT_RISE : DEVICE_PIN_EVT_FALL);
 }
 
-/**
- * Interrupt handler for when an fall interrupt is triggered.
- */
-void ZPin::onFall()
+static void irq_handler()
 {
-    if (status & IO_STATUS_EVENT_PULSE_ON_EDGE)
-        pulseWidthEvent(DEVICE_PIN_EVT_PULSE_HI);
+    int pr = EXTI->PR;
+    EXTI->PR = pr; // clear all pending bits
 
-    if (status & IO_STATUS_EVENT_ON_EDGE)
-        Event(id, DEVICE_PIN_EVT_FALL);
+    for (int i = 0; i < 16; ++i)
+    {
+        if ((pr & (1 << i)) && eventPin[i])
+            eventPin[i]->eventCallback();
+    }
 }
 
-void ZPin::eventCallback(struct device *port, struct gpio_callback *cb, u32_t pins)
-{
-    auto cfg = CONTAINER_OF(cb, ZEventConfig, callback);
-    auto pin = cfg->parent;
-    u32_t v = 0;
-    // this is somewhat suboptimal, since the state of the pin might have changed
-    // since the event was rised
-    gpio_pin_read(pin->port, pin->name & PINMASK, &v);
-    if (v)
-        pin->onRise();
-    else
-        pin->onFall();
+#define DEF(nm)                                                                                    \
+    extern "C" void nm() { irq_handler(); }
+
+DEF(EXTI0_IRQHandler)
+DEF(EXTI1_IRQHandler)
+DEF(EXTI2_IRQHandler)
+DEF(EXTI3_IRQHandler)
+DEF(EXTI4_IRQHandler)
+DEF(EXTI9_5_IRQHandler)
+DEF(EXTI15_10_IRQHandler)
+
+static void enable_irqs() {
+    NVIC_EnableIRQ(EXTI0_IRQn);
+    NVIC_EnableIRQ(EXTI1_IRQn);
+    NVIC_EnableIRQ(EXTI2_IRQn);
+    NVIC_EnableIRQ(EXTI3_IRQn);
+    NVIC_EnableIRQ(EXTI4_IRQn);
+    NVIC_EnableIRQ(EXTI9_5_IRQn);
+    NVIC_EnableIRQ(EXTI15_10_IRQn);
 }
 
 /**
@@ -569,18 +571,31 @@ void ZPin::eventCallback(struct device *port, struct gpio_callback *cb, u32_t pi
  */
 int ZPin::enableRiseFallEvents(int eventType)
 {
-    LL_SYSCFG_SetEXTISource();
-
     // if we are in neither of the two modes, configure pin as a TimedInterruptIn.
     if (!(status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)))
     {
         config(0);
+
+        enable_irqs();
+
+        int pin = (int)name & PINMASK;
+
+        eventPin[pin] = this;
+
+        int *ptr = &SYSCFG->EXTICR[pin >> 2];
+        int shift = (pin & 3) * 4;
+        int port = (int)name >> 4;
+
+        // take over line for ourselves
+        *ptr = (*ptr & ~(0xf << shift)) | (port << shift);
+
+        EXTI->EMR &= ~GPIO_PIN();
+        EXTI->IMR |= GPIO_PIN();
+        EXTI->RTSR |= GPIO_PIN();
+        EXTI->FTSR |= GPIO_PIN();
+
         auto cfg = this->evCfg = new ZEventConfig;
-        cfg->parent = this;
-        auto pin = this->name & PINMASK;
-        gpio_init_callback(&cfg->callback, &ZPin::eventCallback, BIT(pin));
-        gpio_add_callback(this->port, &cfg->callback);
-        gpio_pin_enable_callback(this->port, pin);
+        cfg->prevPulse = 0;
     }
 
     status &= ~(IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE);

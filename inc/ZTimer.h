@@ -9,8 +9,9 @@ namespace codal
 class ZTimer : public codal::Timer
 {
     uint32_t prev;
-    TIM_HandleTypeDef TimHandle;
 public:
+    TIM_HandleTypeDef TimHandle;
+    
     ZTimer();
     static ZTimer *instance;
     void init();

@@ -1,10 +1,11 @@
 #ifndef CODAL_STM32_H
 #define CODAL_STM32_H
 
-// TODO
-
 #define USE_HAL_DRIVER 1
-#define STM32F401xE
+#if defined(STM32F4)
 #include "stm32f4xx.h"
+#else
+#error "TODO: add the rest"
+#endif
 
 #endif

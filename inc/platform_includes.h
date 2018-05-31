@@ -11,10 +11,21 @@
 
 #define PROCESSOR_WORD_TYPE uint32_t
 
-#define DEVICE_COMPONENT_COUNT 64
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void target_panic(int statusCode);
+
+#ifdef __cplusplus
+}
+#endif
 
 #define CODAL_ASSERT(cond)                                                                         \
     if (!(cond))                                                                                   \
     target_panic(909)
+
+#define MBED_ASSERT CODAL_ASSERT
+#define error(msg) CODAL_ASSERT(0)
 
 #endif

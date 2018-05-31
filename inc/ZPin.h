@@ -29,6 +29,7 @@ DEALINGS IN THE SOFTWARE.
 #include "Pin.h"
 #include "CodalConfig.h"
 #include "Button.h"
+#include "pwmout_api.h"
 
 #ifndef DEVICE_DEFAULT_PWM_PERIOD
 #define DEVICE_DEFAULT_PWM_PERIOD 20000
@@ -55,8 +56,7 @@ protected:
     };
 
     void config(int status);
-    int setPWM(u32_t value, u32_t period);
-    static void eventCallback(struct device *port, struct gpio_callback *cb, u32_t pins);
+    int setPWM(uint32_t value, uint32_t period);
 
     /**
      * Disconnect any attached mBed IO from this pin.
@@ -70,16 +70,6 @@ protected:
      * DynamicPwm instance, and if it's not, allocates a new DynamicPwm instance.
      */
     virtual int obtainAnalogChannel();
-
-    /**
-     * Interrupt handler for when an rise interrupt is triggered.
-     */
-    virtual void onRise();
-
-    /**
-     * Interrupt handler for when an fall interrupt is triggered.
-     */
-    virtual void onFall();
 
     /**
      * This member function manages the calculation of the timestamp of a pulse detected
@@ -109,6 +99,8 @@ protected:
     virtual int disableEvents();
 
 public:
+    void eventCallback();
+
     /**
      * Constructor.
      * Create a DevicePin instance, generally used to represent a pin on the edge connector.

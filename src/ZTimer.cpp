@@ -8,12 +8,6 @@
 namespace codal
 {
 
-void ZTimer::callback(k_timer *tm)
-{
-    auto t = (ZTimer *)k_timer_user_data_get(tm);
-    t->trigger();
-}
-
 ZTimer::ZTimer() : codal::Timer()
 {
     memset(&TimHandle, 0, sizeof(TimHandle));
@@ -37,7 +31,6 @@ extern "C" void TIM5_IRQHandler()
 
 void ZTimer::init()
 {
-    TIM_OC_InitTypeDef sConfig;
     TimHandle.Instance = TIM5;
 
     TimHandle.Init.Period = 0xFFFFFFFF;
@@ -46,7 +39,7 @@ void ZTimer::init()
     TimHandle.Init.CounterMode = TIM_COUNTERMODE_UP;
 
     if (HAL_TIM_OC_Init(&TimHandle) != HAL_OK)
-        oops();
+        CODAL_ASSERT(0);
 
     NVIC_EnableIRQ(TIM5_IRQn);
     HAL_TIM_OC_Start(&TimHandle, TIM_CHANNEL_1);
@@ -64,11 +57,11 @@ void ZTimer::triggerIn(CODAL_TIMESTAMP t)
 
 void ZTimer::syncRequest()
 {
-    int key = irq_lock();
-    u32_t curr = __HAL_TIM_GET_COUNTER(&TimHandle);
-    u32_t delta = curr - this->prev;
+    target_disable_irq();
+    uint32_t curr = __HAL_TIM_GET_COUNTER(&TimHandle);
+    uint32_t delta = curr - this->prev;
     this->prev = curr;
     this->sync(delta);
-    irq_unlock(key);
+    target_enable_irq();
 }
 } // namespace codal

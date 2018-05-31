@@ -19,7 +19,13 @@
 #ifndef MBED_PINMAP_H
 #define MBED_PINMAP_H
 
-#include "PinNames.h"
+#include "stm32.h"
+
+#include "PinNamesTypes.h"
+
+typedef uint32_t PinName;
+
+#define NC (PinName)(-1)
 
 #ifdef __cplusplus
 extern "C" {

@@ -33,12 +33,13 @@ DEALINGS IN THE SOFTWARE.
 #include "Timer.h"
 #include "codal_target_hal.h"
 #include "codal-core/inc/types/Event.h"
-#include "board_pinmux.h"
+#include "PinNamesTypes.h"
+#include "pinmap.h"
 
 #define IO_STATUS_CAN_READ                                                                         \
     (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)
 
-#define PORTPINS GPIO_NUMBER
+#define PORTPINS 16
 #define PINMASK (PORTPINS - 1)
 
 #define GPIO_PORT() ((GPIO_TypeDef *)(GPIOA_BASE + 0x400 * ((int)name >> 4)))
@@ -98,11 +99,6 @@ ZPin::ZPin(int id, PinNumber name, PinCapability capability) : codal::Pin(id, na
 
 void ZPin::config(int status)
 {
-    memset(&init, 0, sizeof(init));
-
-    int flags = 0;
-    int pin = this->name & PINMASK;
-
     if (this->status & IO_STATUS_ANALOG_OUT)
     {
         delete this->pwmCfg;
@@ -163,7 +159,7 @@ int ZPin::setDigitalValue(int value)
         config(IO_STATUS_DIGITAL_OUT);
     }
 
-    HAL_GPIO_WritePin(GPIO_PORT(), GPIO_PIN(), value);
+    HAL_GPIO_WritePin(GPIO_PORT(), GPIO_PIN(), (GPIO_PinState)value);
 
     return DEVICE_OK;
 }
@@ -225,7 +221,7 @@ int ZPin::obtainAnalogChannel()
     return DEVICE_OK;
 }
 
-int ZPin::setPWM(u32_t value, u32_t period)
+int ZPin::setPWM(uint32_t value, uint32_t period)
 {
     // sanitise the level value
     if (value > period)
@@ -257,7 +253,7 @@ int ZPin::setAnalogValue(int value)
     if (value < 0 || value > DEVICE_PIN_MAX_OUTPUT)
         return DEVICE_INVALID_PARAMETER;
 
-    return setPWM((u64_t)value * this->pwmCfg->period / DEVICE_PIN_MAX_OUTPUT,
+    return setPWM((uint64_t)value * this->pwmCfg->period / DEVICE_PIN_MAX_OUTPUT,
                   this->pwmCfg->period);
 }
 
@@ -436,7 +432,7 @@ int ZPin::setServoPulseUs(int pulseWidth)
 int ZPin::setAnalogPeriodUs(int period)
 {
     // keep the % of duty cycle
-    return setPWM((u64_t)this->pwmCfg->pulse * period / this->pwmCfg->period, period);
+    return setPWM((uint64_t)this->pwmCfg->pulse * period / this->pwmCfg->period, period);
 }
 
 /**
@@ -582,7 +578,7 @@ int ZPin::enableRiseFallEvents(int eventType)
 
         eventPin[pin] = this;
 
-        int *ptr = &SYSCFG->EXTICR[pin >> 2];
+        volatile uint32_t *ptr = &SYSCFG->EXTICR[pin >> 2];
         int shift = (pin & 3) * 4;
         int port = (int)name >> 4;
 

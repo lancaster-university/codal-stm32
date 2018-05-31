@@ -27,12 +27,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *******************************************************************************
  */
-#include "stm32.h"
+#include "platform_includes.h"
 #include "pwmout_api.h"
 
 #include "cmsis.h"
 #include "pinmap.h"
-#include "mbed_error.h"
 #include "PeripheralPins.h"
 #include "pwmout_device.h"
 
@@ -41,8 +40,8 @@ static TIM_HandleTypeDef TimHandle;
 void pwmout_init(pwmout_t* obj, PinName pin)
 {
     // Get the peripheral name from the pin and assign it to the object
-    obj->pwm = (PWMName)pinmap_peripheral(pin, PinMap_PWM);
-    MBED_ASSERT(obj->pwm != (PWMName)NC);
+    obj->pwm = pinmap_peripheral(pin, PinMap_PWM);
+    MBED_ASSERT(obj->pwm != NC);
 
     // Get the functions (timer channel, (non)inverted) from the pin and assign it to the object
     uint32_t function = pinmap_function(pin, PinMap_PWM);
@@ -52,102 +51,102 @@ void pwmout_init(pwmout_t* obj, PinName pin)
 
     // Enable TIM clock
 #if defined(TIM1_BASE)
-    if (obj->pwm == PWM_1){
+    if (obj->pwm == TIM1_BASE){
         __HAL_RCC_TIM1_CLK_ENABLE();
     }
 #endif
 #if defined(TIM2_BASE)
-    if (obj->pwm == PWM_2) {
+    if (obj->pwm == TIM2_BASE) {
         __HAL_RCC_TIM2_CLK_ENABLE();
     }
 #endif
 #if defined(TIM3_BASE)
-    if (obj->pwm == PWM_3) {
+    if (obj->pwm == TIM3_BASE) {
         __HAL_RCC_TIM3_CLK_ENABLE();
     }
 #endif
 #if defined(TIM4_BASE)
-    if (obj->pwm == PWM_4) {
+    if (obj->pwm == TIM4_BASE) {
         __HAL_RCC_TIM4_CLK_ENABLE();
     }
 #endif
 #if defined(TIM5_BASE)
-    if (obj->pwm == PWM_5) {
+    if (obj->pwm == TIM5_BASE) {
         __HAL_RCC_TIM5_CLK_ENABLE();
     }
 #endif
 #if defined(TIM8_BASE)
-    if (obj->pwm == PWM_8) {
+    if (obj->pwm == TIM8_BASE) {
         __HAL_RCC_TIM8_CLK_ENABLE();
     }
 #endif
 #if defined(TIM9_BASE)
-    if (obj->pwm == PWM_9) {
+    if (obj->pwm == TIM9_BASE) {
         __HAL_RCC_TIM9_CLK_ENABLE();
     }
 #endif
 #if defined(TIM10_BASE)
-    if (obj->pwm == PWM_10) {
+    if (obj->pwm == TIM10_BASE) {
         __HAL_RCC_TIM10_CLK_ENABLE();
     }
 #endif
 #if defined(TIM11_BASE)
-    if (obj->pwm == PWM_11) {
+    if (obj->pwm == TIM11_BASE) {
         __HAL_RCC_TIM11_CLK_ENABLE();
     }
 #endif
 #if defined(TIM12_BASE)
-    if (obj->pwm == PWM_12) {
+    if (obj->pwm == TIM12_BASE) {
         __HAL_RCC_TIM12_CLK_ENABLE();
     }
 #endif
 #if defined(TIM13_BASE)
-    if (obj->pwm == PWM_13) {
+    if (obj->pwm == TIM13_BASE) {
         __HAL_RCC_TIM13_CLK_ENABLE();
     }
 #endif
 #if defined(TIM14_BASE)
-    if (obj->pwm == PWM_14) {
+    if (obj->pwm == TIM14_BASE) {
         __HAL_RCC_TIM14_CLK_ENABLE();
     }
 #endif
 #if defined(TIM15_BASE)
-    if (obj->pwm == PWM_15) {
+    if (obj->pwm == TIM15_BASE) {
         __HAL_RCC_TIM15_CLK_ENABLE();
     }
 #endif
 #if defined(TIM16_BASE)
-    if (obj->pwm == PWM_16) {
+    if (obj->pwm == TIM16_BASE) {
         __HAL_RCC_TIM16_CLK_ENABLE();
     }
 #endif
 #if defined(TIM17_BASE)
-    if (obj->pwm == PWM_17) {
+    if (obj->pwm == TIM17_BASE) {
         __HAL_RCC_TIM17_CLK_ENABLE();
     }
 #endif
 #if defined(TIM18_BASE)
-    if (obj->pwm == PWM_18) {
+    if (obj->pwm == TIM18_BASE) {
         __HAL_RCC_TIM18_CLK_ENABLE();
     }
 #endif
 #if defined(TIM19_BASE)
-    if (obj->pwm == PWM_19) {
+    if (obj->pwm == TIM19_BASE) {
         __HAL_RCC_TIM19_CLK_ENABLE();
     }
 #endif
 #if defined(TIM20_BASE)
-    if (obj->pwm == PWM_20) {
+    if (obj->pwm == TIM20_BASE) {
         __HAL_RCC_TIM20_CLK_ENABLE();
     }
 #endif
 #if defined(TIM21_BASE)
-    if (obj->pwm == PWM_21) {
+    if (obj->pwm == TIM21_BASE) {
         __HAL_RCC_TIM21_CLK_ENABLE();
     }
 #endif
 #if defined(TIM22_BASE)
-    if (obj->pwm == PWM_22) {
+    if (obj->pwm == TIM22_BASE) {
         __HAL_RCC_TIM22_CLK_ENABLE();
     }
 #endif
@@ -212,7 +211,8 @@ void pwmout_write(pwmout_t* obj, uint32_t pulse)
     }
 
     if (HAL_TIM_PWM_ConfigChannel(&TimHandle, &sConfig, channel) != HAL_OK) {
-        error("Cannot initialize PWM\n");
+        CODAL_ASSERT(0);
+        //error("Cannot initialize PWM\n");
     }
 
 #if !defined(PWMOUT_INVERTED_NOT_SUPPORTED)

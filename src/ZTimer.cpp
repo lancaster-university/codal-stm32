@@ -8,6 +8,8 @@
 namespace codal
 {
 
+ZTimer *ZTimer::instance;
+
 ZTimer::ZTimer() : codal::Timer()
 {
     memset(&TimHandle, 0, sizeof(TimHandle));

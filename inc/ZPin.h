@@ -58,13 +58,6 @@ protected:
     int setPWM(uint32_t value, uint32_t period);
 
     /**
-     * Disconnect any attached mBed IO from this pin.
-     *
-     * Used only when pin changes mode (i.e. Input/Output/Analog/Digital)
-     */
-    virtual void disconnect();
-
-    /**
      * Performs a check to ensure that the current Pin is in control of a
      * DynamicPwm instance, and if it's not, allocates a new DynamicPwm instance.
      */

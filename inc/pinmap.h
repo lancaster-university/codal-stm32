@@ -19,7 +19,7 @@
 #ifndef MBED_PINMAP_H
 #define MBED_PINMAP_H
 
-#include "stm32.h"
+#include "platform_includes.h"
 
 #include "PinNamesTypes.h"
 

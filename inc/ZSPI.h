@@ -69,7 +69,7 @@ public:
      *
      * Default setup is 1 MHz, 8 bit, mode 0.
      */
-    ZSPI(codal::Pin *mosi, codal::Pin *miso, codal::Pin *sclk);
+    ZSPI(codal::Pin &mosi, codal::Pin &miso, codal::Pin &sclk);
 
     /** Set the frequency of the SPI interface
      *

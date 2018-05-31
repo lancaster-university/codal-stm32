@@ -66,4 +66,15 @@ void ZTimer::syncRequest()
     this->sync(delta);
     target_enable_irq();
 }
+
+extern "C" void wait_us(uint32_t us)
+{
+    auto end = ZTimer::instance->getTimeUs() + us;
+
+    while (ZTimer::instance->getTimeUs() < end)
+    {
+        // busy wait
+    }
+}
+
 } // namespace codal

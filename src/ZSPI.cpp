@@ -240,11 +240,11 @@ void ZSPI::init()
     CODAL_ASSERT(res == HAL_OK);
 }
 
-ZSPI::ZSPI(Pin *mosi, Pin *miso, Pin *sclk) : codal::SPI()
+ZSPI::ZSPI(Pin &mosi, Pin &miso, Pin &sclk) : codal::SPI()
 {
-    this->mosi = mosi;
-    this->miso = miso;
-    this->sclk = sclk;
+    this->mosi = &mosi;
+    this->miso = &miso;
+    this->sclk = &sclk;
 
     ZERO(spi);
     ZERO(hdma_tx);

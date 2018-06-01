@@ -125,6 +125,8 @@ static int enable_clock(uint32_t instance)
 void ZSPI::complete()
 {
     LOG("SPI complete D=%p", doneHandler);
+    while (!(spi.Instance->SR & SPI_SR_TXE)) {}
+    while (spi.Instance->SR & SPI_SR_BSY) {}
     if (doneHandler)
     {
         PVoidCallback done = doneHandler;

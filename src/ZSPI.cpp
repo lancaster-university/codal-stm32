@@ -37,7 +37,8 @@ DEALINGS IN THE SOFTWARE.
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 
-#define LOG DMESG
+//#define LOG DMESG
+#define LOG(...) ((void)0)
 
 namespace codal
 {
@@ -162,23 +163,23 @@ void ZSPI::_irq(uint32_t instance)
     }
 }
 
-void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
+extern "C" void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 {
     ZSPI::_complete((uint32_t)hspi->Instance);
 }
 
-void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
+extern "C" void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
 {
     ZSPI::_complete((uint32_t)hspi->Instance);
 }
 
-void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi)
+extern "C" void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi)
 {
     ZSPI::_complete((uint32_t)hspi->Instance);
 }
 
 #define DEFIRQ(nm, id)                                                                             \
-    void nm() { ZSPI::_irq(id); }
+    extern "C" void nm() { ZSPI::_irq(id); }
 
 DEFIRQ(SPI1_IRQHandler, SPI1_BASE)
 DEFIRQ(SPI2_IRQHandler, SPI2_BASE)
@@ -298,10 +299,11 @@ int ZSPI::write(int data)
 
 int ZSPI::transfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuffer, uint32_t rxSize)
 {    
-    fiber_wake_on_event(DEVICE_ID_NOTIFY_ONE, transferCompleteEventCode);
+    fiber_wake_on_event(DEVICE_ID_NOTIFY, transferCompleteEventCode);
     auto res = startTransfer(txBuffer, txSize, rxBuffer, rxSize, NULL, NULL);
-    LOG("SPI started");
+    LOG("SPI ->");
     schedule();
+    LOG("SPI <-");
     return res;
 }
 

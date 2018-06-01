@@ -4,7 +4,8 @@
 #define NUM_STREAMS 8
 #define NUM_DMA 2
 
-#define LOG DMESG
+//#define LOG DMESG
+#define LOG(...) ((void)0)
 
 typedef struct
 {

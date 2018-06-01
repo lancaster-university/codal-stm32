@@ -24,6 +24,9 @@ void target_wait(uint32_t milliseconds)
 
 void target_reset()
 {
+    PWR->CR |= PWR_CR_DBP;
+    RCC->BDCR |= RCC_BDCR_RTCEN;
+    RTC->BKP0R = 0x24a22d12; // skip bootloader
     NVIC_SystemReset();
 }
 

@@ -15,6 +15,8 @@
  */
 #include "pinmap.h"
 
+#define error MBED_ERROR
+
 void pinmap_pinout(PinName pin, const PinMap *map) {
     if (pin == NC)
         return;

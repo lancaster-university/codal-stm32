@@ -37,6 +37,8 @@ DEALINGS IN THE SOFTWARE.
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 
+#define LOG DMESG
+
 namespace codal
 {
 
@@ -121,6 +123,7 @@ static int enable_clock(uint32_t instance)
 
 void ZSPI::complete()
 {
+    LOG("SPI complete D=%p", doneHandler);
     if (doneHandler)
     {
         PVoidCallback done = doneHandler;
@@ -135,6 +138,7 @@ void ZSPI::complete()
 
 void ZSPI::_complete(uint32_t instance)
 {
+    LOG("SPI complete %p", instance);
     for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
     {
         if (instances[i] && (uint32_t)instances[i]->spi.Instance == instance)
@@ -147,6 +151,7 @@ void ZSPI::_complete(uint32_t instance)
 
 void ZSPI::_irq(uint32_t instance)
 {
+    LOG("SPI IRQ %p", instance);
     for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
     {
         if (instances[i] && (uint32_t)instances[i]->spi.Instance == instance)
@@ -206,6 +211,8 @@ void ZSPI::init()
         spi.Instance = (SPI_TypeDef *)instance;
     }
 
+    LOG("SPI instance %p", spi.Instance);
+
     spi.Init.Direction = SPI_DIRECTION_2LINES;
     spi.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
     spi.Init.CRCPolynomial = 7;
@@ -255,8 +262,10 @@ ZSPI::ZSPI(Pin &mosi, Pin &miso, Pin &sclk) : codal::SPI()
 
     for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
     {
-        if (instances[i] == NULL)
+        if (instances[i] == NULL) {
             instances[i] = this;
+            break;
+        }
     }
 }
 
@@ -288,9 +297,10 @@ int ZSPI::write(int data)
 }
 
 int ZSPI::transfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuffer, uint32_t rxSize)
-{
+{    
     fiber_wake_on_event(DEVICE_ID_NOTIFY_ONE, transferCompleteEventCode);
     auto res = startTransfer(txBuffer, txSize, rxBuffer, rxSize, NULL, NULL);
+    LOG("SPI started");
     schedule();
     return res;
 }
@@ -301,6 +311,8 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
     int res;
 
     init();
+
+    LOG("SPI start %p/%d %p/%d D=%p", txBuffer, txSize, rxBuffer, rxSize, doneHandler);
 
     this->doneHandler = doneHandler;
     this->doneHandlerArg = arg;

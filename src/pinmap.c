@@ -31,6 +31,7 @@
 //#include "PortNames.h"
 #include "pin_device.h"
 
+#define error MBED_ERROR
 
 extern GPIO_TypeDef *Set_GPIO_Clock(uint32_t port_idx);
 

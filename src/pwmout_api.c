@@ -37,6 +37,8 @@
 
 static TIM_HandleTypeDef TimHandle;
 
+#define error MBED_ERROR
+
 void pwmout_init(pwmout_t* obj, PinName pin)
 {
     // Get the peripheral name from the pin and assign it to the object
@@ -211,8 +213,7 @@ void pwmout_write(pwmout_t* obj, uint32_t pulse)
     }
 
     if (HAL_TIM_PWM_ConfigChannel(&TimHandle, &sConfig, channel) != HAL_OK) {
-        CODAL_ASSERT(0);
-        //error("Cannot initialize PWM\n");
+        error("Cannot initialize PWM\n");
     }
 
 #if !defined(PWMOUT_INVERTED_NOT_SUPPORTED)

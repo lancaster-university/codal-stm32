@@ -1,7 +1,10 @@
 #include "dma.h"
+#include "CodalDmesg.h"
 
 #define NUM_STREAMS 8
 #define NUM_DMA 2
+
+#define LOG DMESG
 
 typedef struct
 {
@@ -58,6 +61,7 @@ static DMA_HandleTypeDef *handles[NUM_STREAMS * NUM_DMA];
 
 static void irq_callback(int id)
 {
+    LOG("DMA irq %d", id);
     if (handles[id])
         HAL_DMA_IRQHandler(handles[id]);
 }
@@ -93,7 +97,9 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj)
     {
         if (map->peripheral == peripheral && map->rxdx == rxdx)
         {
-            id = map->dma * NUM_STREAMS + map->stream;
+            CODAL_ASSERT(map->dma <= NUM_DMA);
+            CODAL_ASSERT(map->stream < NUM_STREAMS);
+            id = (map->dma - 1) * NUM_STREAMS + map->stream;
             if (handles[id] == NULL)
             {
                 handles[id] = obj;
@@ -102,10 +108,9 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj)
         }
     }
 
-    if (!map->peripheral)
-        return -1;
+    CODAL_ASSERT(map->peripheral);
 
-    obj->Instance = streams[map->stream].instance;
+    obj->Instance = streams[id].instance;
 
     obj->Init.Channel = channels[map->channel];
     obj->Init.Direction = rxdx == DMA_TX ? DMA_MEMORY_TO_PERIPH : DMA_PERIPH_TO_MEMORY;
@@ -125,9 +130,12 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj)
     else if (map->dma == 2)
         __HAL_RCC_DMA2_CLK_ENABLE();
 
-    HAL_DMA_Init(obj);
+    int res = HAL_DMA_Init(obj);
+    CODAL_ASSERT(res == HAL_OK);
 
-    NVIC_EnableIRQ(streams[map->stream].irqn);
+    LOG("DMA init %p irq=%d ch=%d str=%d", obj->Instance, streams[id].irqn, map->channel, map->stream);
+
+    NVIC_EnableIRQ(streams[id].irqn);
 
     return 0;
 }

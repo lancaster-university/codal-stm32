@@ -74,6 +74,7 @@ static inline uint32_t setup(Pin *p, uint32_t prev, const PinMap *map)
     auto pin = p->name;
     uint32_t tmp = pinmap_peripheral(pin, map);
     pin_function(pin, pinmap_function(pin, map));
+    pin_mode(pin, PullNone);
     CODAL_ASSERT(!prev || prev == tmp);
     return tmp;
 }
@@ -131,6 +132,7 @@ void ZSPI::complete()
     {
         PVoidCallback done = doneHandler;
         doneHandler = NULL;
+        //create_fiber(done, doneHandlerArg);
         done(doneHandlerArg);
     }
     else

@@ -126,8 +126,6 @@ static int enable_clock(uint32_t instance)
 void ZSPI::complete()
 {
     LOG("SPI complete D=%p", doneHandler);
-    while (!(spi.Instance->SR & SPI_SR_TXE)) {}
-    while (spi.Instance->SR & SPI_SR_BSY) {}
     if (doneHandler)
     {
         PVoidCallback done = doneHandler;
@@ -243,10 +241,12 @@ void ZSPI::init()
 
     for (int i = 0; baudprescaler[i]; i += 2)
     {
-        if (pclkHz / baudprescaler[i + 1] > freq)
-            break;
         spi.Init.BaudRatePrescaler = baudprescaler[i];
+        if (pclkHz / baudprescaler[i + 1] <= freq)
+            break;
     }
+
+    spi.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
 
     auto res = HAL_SPI_Init(&spi);
     CODAL_ASSERT(res == HAL_OK);

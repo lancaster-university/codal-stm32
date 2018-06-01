@@ -120,11 +120,8 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj)
     obj->Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
     obj->Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
     obj->Init.Mode = DMA_NORMAL;
-    obj->Init.Priority = DMA_PRIORITY_MEDIUM;
-    obj->Init.FIFOMode = DMA_FIFOMODE_DISABLE;
-    obj->Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
-    obj->Init.MemBurst = DMA_MBURST_INC4;
-    obj->Init.PeriphBurst = DMA_PBURST_INC4;
+    obj->Init.Priority =  rxdx == DMA_RX ? DMA_PRIORITY_HIGH : DMA_PRIORITY_LOW;
+
 
     if (map->dma == 1)
         __HAL_RCC_DMA1_CLK_ENABLE();

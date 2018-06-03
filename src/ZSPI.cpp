@@ -67,7 +67,7 @@ static ZSPI *instances[4];
 
 #define ZERO(f) memset(&f, 0, sizeof(f))
 
-static inline uint32_t setup(Pin *p, uint32_t prev, const PinMap *map)
+uint32_t setup_pin(Pin *p, uint32_t prev, const PinMap *map)
 {
     if (!p)
         return 0;
@@ -207,9 +207,9 @@ void ZSPI::init()
 
     if (!spi.Instance)
     {
-        uint32_t instance = setup(sclk, 0, PinMap_SPI_SCLK);
-        instance = setup(miso, 0, PinMap_SPI_MISO);
-        instance = setup(mosi, 0, PinMap_SPI_MOSI);
+        uint32_t instance = setup_pin(sclk, 0, PinMap_SPI_SCLK);
+        instance = setup_pin(miso, 0, PinMap_SPI_MISO);
+        instance = setup_pin(mosi, 0, PinMap_SPI_MOSI);
 
         spi.Instance = (SPI_TypeDef *)instance;
     }

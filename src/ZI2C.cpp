@@ -90,42 +90,50 @@ int ZI2C::setFrequency(uint32_t frequency)
     return DEVICE_OK;
 }
 
-int ZI2C::start()
+int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
 {
+    if (data == NULL || len <= 0)
+        return DEVICE_INVALID_PARAMETER; // Send a start condition
+
+    CODAL_ASSERT(!repeated);
+
     init();
-    while (LL_I2C_IsActiveFlag_BUSY(i2c.Instance))
-        ;
-    LL_I2C_DisableBitPOS(i2c.Instance);
-    LL_I2C_GenerateStartCondition(i2c.Instance);
-    while (!LL_I2C_IsActiveFlag_SB(i2c.Instance))
-        ;
-    return 0;
+    // timeout in ms - we use infinity
+    auto res = HAL_I2C_Master_Transmit(&i2c, address, data, len, HAL_MAX_DELAY);
+
+    if (res == HAL_OK)
+        return DEVICE_OK;
+    else
+        return DEVICE_I2C_ERROR;
 }
 
-int ZI2C::stop()
+int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
 {
-    LL_I2C_GenerateStopCondition(i2c.Instance);
-    return 0;
+    if (data == NULL || len <= 0)
+        return DEVICE_INVALID_PARAMETER;
+
+    CODAL_ASSERT(!repeated);
+
+    init();
+    auto res = HAL_I2C_Master_Receive(&i2c, address, data, len, HAL_MAX_DELAY);
+
+    if (res == HAL_OK)
+        return DEVICE_OK;
+    else
+        return DEVICE_I2C_ERROR;
 }
 
-int ZI2C::write(uint8_t data)
+int ZI2C::readRegister(uint16_t address, uint8_t reg, uint8_t *data, int length, bool repeated)
 {
-    while (!LL_I2C_IsActiveFlag_TXE(i2c.Instance))
-        ;
-    i2c.Instance->DR = data;
-    while (!LL_I2C_IsActiveFlag_BTF(i2c.Instance))
-        ;
-    if (LL_I2C_IsActiveFlag_ADDR(i2c.Instance))
-        LL_I2C_ClearFlag_ADDR(i2c.Instance);
-    return 0;
-}
+    CODAL_ASSERT(!repeated);
 
-int ZI2C::read(AcknowledgeType ack)
-{
-    LL_I2C_AcknowledgeNextData(i2c.Instance, ack == ACK ? LL_I2C_ACK : LL_I2C_NACK);
-    while (!LL_I2C_IsActiveFlag_RXNE(i2c.Instance))
-        ;
-    return i2c.Instance->DR;
+    init();
+    auto res = HAL_I2C_Mem_Read(&i2c, address, reg, I2C_MEMADD_SIZE_8BIT, data, length, HAL_MAX_DELAY);
+
+    if (res == HAL_OK)
+        return DEVICE_OK;
+    else
+        return DEVICE_I2C_ERROR;
 }
 
 } // namespace codal

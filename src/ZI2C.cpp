@@ -115,6 +115,8 @@ int ZI2C::write(uint8_t data)
     i2c.Instance->DR = data;
     while (!LL_I2C_IsActiveFlag_BTF(i2c.Instance))
         ;
+    if (LL_I2C_IsActiveFlag_ADDR(i2c.Instance))
+        LL_I2C_ClearFlag_ADDR(i2c.Instance);
     return 0;
 }
 

@@ -37,6 +37,10 @@ const uint32_t channels[] = {
     DMA_CHANNEL_4, DMA_CHANNEL_5, DMA_CHANNEL_6, DMA_CHANNEL_7,
 };
 
+#if !defined(STM32F4)
+#error "check the DMA mapping table below"
+#endif
+
 MBED_WEAK const DmaMap TheDmaMap[] = //
     {
         // SPI1
@@ -54,6 +58,21 @@ MBED_WEAK const DmaMap TheDmaMap[] = //
         {SPI3_BASE, DMA_RX, 1, 2, 0},
         {SPI3_BASE, DMA_TX, 1, 5, 0},
         {SPI3_BASE, DMA_TX, 1, 7, 0},
+
+        // 
+        {USART1_BASE, DMA_RX, 2, 2, 4},
+        {USART1_BASE, DMA_RX, 2, 5, 4},
+        {USART1_BASE, DMA_TX, 2, 7, 4},
+
+        // 
+        {USART2_BASE, DMA_RX, 1, 5, 4},
+        {USART2_BASE, DMA_TX, 1, 6, 4},
+
+        // 
+        {USART6_BASE, DMA_RX, 2, 1, 5},
+        {USART6_BASE, DMA_RX, 2, 2, 5},
+        {USART6_BASE, DMA_TX, 2, 6, 5},
+        {USART6_BASE, DMA_TX, 2, 7, 5},
 
         // The end
         {0, 0, 0, 0, 0}};

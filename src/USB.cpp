@@ -63,6 +63,8 @@ DEALINGS IN THE SOFTWARE.
 #endif /* USB */
 
 static PCD_HandleTypeDef pcd;
+static uint32_t irqn;
+
 #ifdef USB
 static uint16_t pmaOffset;
 #endif
@@ -80,8 +82,6 @@ void usb_configure(uint8_t numEndpoints)
 
     for (int i = 0; PinMap_USB[i].pin != NC; ++i)
         codal_setup_pin(PinMap_USB[i].pin, 0, PinMap_USB);
-
-    uint32_t irqn;
 
 #ifdef USB
     __HAL_RCC_USB_CLK_ENABLE();
@@ -143,6 +143,10 @@ static UsbEndpointOut *findOutEp(int ep)
     return NULL;
 }
 
+#define NO_IRQ 0x8000
+#define SIZE_MASK 0xfff
+#define WRITE_DONE 0x1
+
 extern "C"
 {
 
@@ -153,9 +157,6 @@ extern "C"
     void HAL_PCD_ResetCallback(PCD_HandleTypeDef *hpcd)
     {
         LOG("USB end of reset");
-        HAL_PCD_EP_Open(hpcd, EP0_IN, EP0_MPS, EP_TYPE_CTRL);
-        HAL_PCD_EP_Open(hpcd, EP0_OUT, EP0_MPS, EP_TYPE_CTRL);
-
         CodalUSB::usbInstance->initEndpoints();
     }
 
@@ -170,17 +171,16 @@ extern "C"
     void HAL_PCD_DataOutStageCallback(PCD_HandleTypeDef *hpcd, u8_t epnum)
     {
         auto ep = findOutEp(epnum);
-        ep->userdata = 0xfffff000 | HAL_PCD_EP_GetRxCount(&pcd, epnum);
-        if (!ep->userdata & 0x8000)
+        ep->userdata = (ep->userdata & ~SIZE_MASK) | HAL_PCD_EP_GetRxCount(&pcd, epnum);
+        if (!(ep->userdata & NO_IRQ))
             CodalUSB::usbInstance->interruptHandler();
     }
 
     void HAL_PCD_DataInStageCallback(PCD_HandleTypeDef *hpcd, u8_t epnum)
     {
         // just set the flag we're done
-        ep->userdata |= 1;
+        ep->userdata |= WRITE_DONE;
     }
-
 
     void HAL_PCD_ConnectCallback(PCD_HandleTypeDef *hpcd) { LOG("USB connect"); }
 
@@ -315,17 +315,22 @@ int UsbEndpointOut::read(void *dst, int maxlen)
 
 static void writeEP(const void *data, uint8_t ep, int len)
 {
-    if (len <= sizeof(buf))
-    {
-        memcpy(buf, data, len);
-        data = buf;
-    }
-    epp->userdata &= ~1;
-    CHK(HAL_PCD_EP_Transmit(&pcd, ep | 0x80, (void *)data, len));
-    auto epp = findInEp(ep);
-    while (!(epp->userdata & 1))
+    usb_assert(len <= USB_MAX_PKT_SIZE);
+    uint32_t len32b = (len + 3) / 4;
+
+    while ((USBx_INEP(epnum)->DTXFSTS & USB_OTG_DTXFSTS_INEPTFSAV) < len32b)
         ;
-    epp->userdata &= ~1;
+
+    memcpy(buf, data, len);
+    CHK(HAL_PCD_EP_Transmit(&pcd, ep | 0x80, (void *)data, len));
+    CHK(USB_WritePacket(pcd.Instance, buf, ep, len));
+
+    while (!(USB_ReadDevInEPInterrupt(hpcd->Instance, ep) & USB_OTG_DIEPINT_XFRC))
+        ;
+
+    USBx_DEVICE->DIEPEMPMSK &= ~0x1U << ep;
+
+    CLEAR_IN_EP_INTR(ep, USB_OTG_DIEPINT_XFRC);
 }
 
 int UsbEndpointIn::write(const void *src, int len)
@@ -349,13 +354,25 @@ int UsbEndpointIn::write(const void *src, int len)
         wLength = 0;
     }
 
-    writeEP(src, ep, len);
+    NVIC_DisableIRQ(irqn);
+
+    while (len)
+    {
+        int n = len;
+        if (n > USB_MAX_PKT_SIZE)
+            n = USB_MAX_PKT_SIZE;
+        writeEP(src, ep, len);
+        len -= n;
+        src += n;
+    }
 
     // send ZLP manually if needed.
     if (zlp && len && (len & (epSize - 1)) == 0)
     {
         writeEP("", ep, 0);
     }
+    
+    NVIC_EnableIRQ(irqn);
 
     return DEVICE_OK;
 }

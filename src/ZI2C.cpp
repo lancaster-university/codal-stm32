@@ -33,7 +33,6 @@ DEALINGS IN THE SOFTWARE.
 namespace codal
 {
 
-uint32_t setup_pin(Pin *p, uint32_t prev, const PinMap *map);
 
 void ZI2C::init()
 {
@@ -44,8 +43,8 @@ void ZI2C::init()
     if (!i2c.Instance)
     {
         uint32_t inst = 0;
-        inst = setup_pin(&sda, inst, PinMap_I2C_SDA);
-        inst = setup_pin(&scl, inst, PinMap_I2C_SCL);
+        inst = codal_setup_pin(&sda, inst, PinMap_I2C_SDA);
+        inst = codal_setup_pin(&scl, inst, PinMap_I2C_SCL);
 
         i2c.Instance = (I2C_TypeDef *)inst;
 

@@ -54,16 +54,17 @@ DEALINGS IN THE SOFTWARE.
 
 // some devices have USB_OTG_FS, others just USB
 #ifdef USB
-// nothing
+#define USBx USB
 #else /* USB_OTG_FS */
 //#define NUM_EP (USB_OTG_FS_MAX_IN_ENDPOINTS - 1)
 #define FIFO_NUM (1 + NUM_IN_EP)
 #define FIFO_WORDS (USB_OTG_FS_TOTAL_FIFO_SIZE / 4)
 #define FIFO_EP_WORDS (FIFO_WORDS / FIFO_NUM)
+#define USBx USB_OTG_FS
 #endif /* USB */
 
 static PCD_HandleTypeDef pcd;
-static uint32_t irqn;
+static IRQn_Type irqn;
 
 #ifdef USB
 static uint16_t pmaOffset;
@@ -81,22 +82,19 @@ void usb_configure(uint8_t numEndpoints)
     usb_assert(pcd.Instance == 0);
 
     for (int i = 0; PinMap_USB[i].pin != NC; ++i)
-        codal_setup_pin(PinMap_USB[i].pin, 0, PinMap_USB);
+        pinmap_pinout(PinMap_USB[i].pin, PinMap_USB);
 
 #ifdef USB
     __HAL_RCC_USB_CLK_ENABLE();
     irqn = USB_IRQn;
-
-    pcd.Instance = USB;
     pcd.Init.speed = PCD_SPEED_FULL;
 #else  /* USB_OTG_FS */
     __HAL_RCC_USB_OTG_FS_CLK_ENABLE();
     irqn = OTG_FS_IRQn;
-
-    pcd.Instance = USB_OTG_FS;
     pcd.Init.speed = USB_OTG_SPEED_FULL;
 #endif /* USB */
 
+    pcd.Instance = USBx;
     pcd.Init.phy_itface = PCD_PHY_EMBEDDED;
     pcd.Init.ep0_mps = USB_MAX_PKT_SIZE;
     pcd.Init.dev_endpoints = NUM_BIDIR_EP;
@@ -112,10 +110,11 @@ void usb_configure(uint8_t numEndpoints)
         HAL_PCDEx_SetTxFiFo(&pcd, i, FIFO_EP_WORDS);
 #endif /* USB */
 
-    NVIC_SetPriority(irqn, 5, 0);
+    NVIC_SetPriority(irqn, 5);
     NVIC_EnableIRQ(irqn);
 }
 
+#if 0
 static UsbEndpointIn *findInEp(int ep)
 {
     auto cusb = CodalUSB::usbInstance;
@@ -129,6 +128,7 @@ static UsbEndpointIn *findInEp(int ep)
     }
     return NULL;
 }
+#endif
 
 static UsbEndpointOut *findOutEp(int ep)
 {
@@ -145,7 +145,6 @@ static UsbEndpointOut *findOutEp(int ep)
 
 #define NO_IRQ 0x8000
 #define SIZE_MASK 0xfff
-#define WRITE_DONE 0x1
 
 extern "C"
 {
@@ -168,7 +167,7 @@ extern "C"
         CodalUSB::usbInstance->setupRequest(stp);
     }
 
-    void HAL_PCD_DataOutStageCallback(PCD_HandleTypeDef *hpcd, u8_t epnum)
+    void HAL_PCD_DataOutStageCallback(PCD_HandleTypeDef *hpcd, uint8_t epnum)
     {
         auto ep = findOutEp(epnum);
         ep->userdata = (ep->userdata & ~SIZE_MASK) | HAL_PCD_EP_GetRxCount(&pcd, epnum);
@@ -176,10 +175,9 @@ extern "C"
             CodalUSB::usbInstance->interruptHandler();
     }
 
-    void HAL_PCD_DataInStageCallback(PCD_HandleTypeDef *hpcd, u8_t epnum)
+    void HAL_PCD_DataInStageCallback(PCD_HandleTypeDef *hpcd, uint8_t epnum)
     {
-        // just set the flag we're done
-        ep->userdata |= WRITE_DONE;
+        // we shouldn't be getting this
     }
 
     void HAL_PCD_ConnectCallback(PCD_HandleTypeDef *hpcd) { LOG("USB connect"); }
@@ -193,7 +191,7 @@ extern "C"
 
 void usb_set_address(uint16_t wValue)
 {
-    CHK(HAL_PCD_SetAddress(&pcd, addr));
+    CHK(HAL_PCD_SetAddress(&pcd, wValue));
 }
 
 int UsbEndpointIn::clearStall()
@@ -311,21 +309,24 @@ int UsbEndpointOut::read(void *dst, int maxlen)
         memcpy(dst, buf, packetSize);
         startRead();
     }
+
+    return packetSize;
 }
 
-static void writeEP(const void *data, uint8_t ep, int len)
+static void writeEP(uint8_t *data, uint8_t ep, int len)
 {
     usb_assert(len <= USB_MAX_PKT_SIZE);
     uint32_t len32b = (len + 3) / 4;
 
-    while ((USBx_INEP(epnum)->DTXFSTS & USB_OTG_DTXFSTS_INEPTFSAV) < len32b)
+    while ((USBx_INEP(ep)->DTXFSTS & USB_OTG_DTXFSTS_INEPTFSAV) < len32b)
         ;
 
-    memcpy(buf, data, len);
-    CHK(HAL_PCD_EP_Transmit(&pcd, ep | 0x80, (void *)data, len));
-    CHK(USB_WritePacket(pcd.Instance, buf, ep, len));
+    CHK(HAL_PCD_EP_Transmit(&pcd, ep | 0x80, data, len));
 
-    while (!(USB_ReadDevInEPInterrupt(hpcd->Instance, ep) & USB_OTG_DIEPINT_XFRC))
+    if (len)
+        CHK(USB_WritePacket(pcd.Instance, data, ep, len, 0));
+
+    while (!(USB_ReadDevInEPInterrupt(pcd.Instance, ep) & USB_OTG_DIEPINT_XFRC))
         ;
 
     USBx_DEVICE->DIEPEMPMSK &= ~0x1U << ep;
@@ -335,8 +336,6 @@ static void writeEP(const void *data, uint8_t ep, int len)
 
 int UsbEndpointIn::write(const void *src, int len)
 {
-    uint32_t data_address;
-
     // this happens when someone tries to write before USB is initialized
     usb_assert(this != NULL);
 
@@ -361,17 +360,18 @@ int UsbEndpointIn::write(const void *src, int len)
         int n = len;
         if (n > USB_MAX_PKT_SIZE)
             n = USB_MAX_PKT_SIZE;
-        writeEP(src, ep, len);
+        memcpy(buf, src, len);
+        writeEP(buf, ep, len);
         len -= n;
-        src += n;
+        src = (const uint8_t*)src + n;
     }
 
     // send ZLP manually if needed.
-    if (zlp && len && (len & (epSize - 1)) == 0)
+    if (zlp && len && (len & (USB_MAX_PKT_SIZE - 1)) == 0)
     {
-        writeEP("", ep, 0);
+        writeEP(buf, ep, 0);
     }
-    
+
     NVIC_EnableIRQ(irqn);
 
     return DEVICE_OK;

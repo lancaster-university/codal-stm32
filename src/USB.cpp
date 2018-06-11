@@ -28,6 +28,7 @@ DEALINGS IN THE SOFTWARE.
 #include "pinmap.h"
 #include "PeripheralPins.h"
 #include "CodalDmesg.h"
+#include "Timer.h"
 
 #define LOG DMESG
 #define DBG DMESG
@@ -48,9 +49,9 @@ DEALINGS IN THE SOFTWARE.
 #error "Invalid chip"
 #endif
 
-#define NUM_IN_EP NUM_EP
-#define NUM_OUT_EP NUM_EP
-#define NUM_BIDIR_EP NUM_EP
+#define NUM_IN_EP (NUM_EP + 1)
+#define NUM_OUT_EP (NUM_EP + 1)
+#define NUM_BIDIR_EP (NUM_EP + 1)
 
 // some devices have USB_OTG_FS, others just USB
 #ifdef USB
@@ -103,7 +104,7 @@ void usb_configure(uint8_t numEndpoints)
     CHK(HAL_PCD_Start(&pcd));
 
 #ifdef USB
-    pmaOffset = 8 * NUM_EP;
+    pmaOffset = 8 * NUM_IN_EP;
 #else  /* USB_OTG_FS */
     HAL_PCDEx_SetRxFiFo(&pcd, FIFO_EP_WORDS);
     for (int i = 0; i < NUM_IN_EP; i++)
@@ -164,7 +165,9 @@ extern "C"
         LOG("USB setup");
         USBSetup stp;
         memcpy(&stp, &hpcd->Setup, sizeof(stp));
+        // USB_EP0_OutStart(pcd.Instance, pcd.Init.dma_enable, (uint8_t *)pcd.Setup);
         CodalUSB::usbInstance->setupRequest(stp);
+        // CodalUSB::usbInstance->ctrlOut->startRead();
     }
 
     void HAL_PCD_DataOutStageCallback(PCD_HandleTypeDef *hpcd, uint8_t epnum)
@@ -189,9 +192,24 @@ extern "C"
     void HAL_PCD_ResumeCallback(PCD_HandleTypeDef *hpcd) { LOG("USB resume"); }
 }
 
-void usb_set_address(uint16_t wValue)
+void usb_set_address(uint16_t wValue) {}
+
+void usb_set_address_pre(uint16_t wValue)
 {
+
+    DBG("ctl=%p", USBx_OUTEP(0)->DOEPCTL);
+
+    LOG("set address %d", wValue);
     CHK(HAL_PCD_SetAddress(&pcd, wValue));
+
+    DBG("ctl2=%p", USBx_OUTEP(0)->DOEPCTL);
+    auto cusb = CodalUSB::usbInstance;
+    cusb->ctrlOut->startRead();
+    for (auto iface = cusb->interfaces; iface; iface = iface->next)
+        if (iface->out)
+            iface->out->startRead();
+
+    DBG("ctl3=%p", USBx_OUTEP(0)->DOEPCTL);
 }
 
 int UsbEndpointIn::clearStall()
@@ -273,7 +291,6 @@ UsbEndpointOut::UsbEndpointOut(uint8_t idx, uint8_t type, uint8_t size)
     CHK(HAL_PCD_EP_Open(&pcd, ep, size, type));
 
     enableIRQ();
-    startRead();
 }
 
 int UsbEndpointOut::disableIRQ()
@@ -290,6 +307,7 @@ int UsbEndpointOut::enableIRQ()
 
 void UsbEndpointOut::startRead()
 {
+    DBG("OUT %d start read", ep);
     CHK(HAL_PCD_EP_Receive(&pcd, ep, buf, USB_MAX_PKT_SIZE));
 }
 
@@ -318,20 +336,32 @@ static void writeEP(uint8_t *data, uint8_t ep, int len)
     usb_assert(len <= USB_MAX_PKT_SIZE);
     uint32_t len32b = (len + 3) / 4;
 
+    DBG("%d write space: %d words", (int)codal::system_timer_current_time_us(),
+        USBx_INEP(ep)->DTXFSTS & USB_OTG_DTXFSTS_INEPTFSAV);
+
     while ((USBx_INEP(ep)->DTXFSTS & USB_OTG_DTXFSTS_INEPTFSAV) < len32b)
         ;
 
+    DBG("write: %p len=%d at IN %d", data, len, ep);
     CHK(HAL_PCD_EP_Transmit(&pcd, ep | 0x80, data, len));
 
     if (len)
         CHK(USB_WritePacket(pcd.Instance, data, ep, len, 0));
 
-    while (!(USB_ReadDevInEPInterrupt(pcd.Instance, ep) & USB_OTG_DIEPINT_XFRC))
-        ;
-
     USBx_DEVICE->DIEPEMPMSK &= ~0x1U << ep;
 
+#if 0
+    while (!(USB_ReadDevInEPInterrupt(pcd.Instance, ep) & USB_OTG_DIEPINT_XFRC))
+        ;
     CLEAR_IN_EP_INTR(ep, USB_OTG_DIEPINT_XFRC);
+#endif
+
+    DBG("%d write done, ctl=%p", (int)codal::system_timer_current_time_us(),
+        USBx_OUTEP(0)->DOEPCTL);
+
+    // there is a ZLP from the host coming
+    if (len && ep == 0)
+        CodalUSB::usbInstance->ctrlOut->startRead();
 }
 
 int UsbEndpointIn::write(const void *src, int len)
@@ -355,7 +385,7 @@ int UsbEndpointIn::write(const void *src, int len)
 
     NVIC_DisableIRQ(irqn);
 
-    while (len)
+    for (;;)
     {
         int n = len;
         if (n > USB_MAX_PKT_SIZE)
@@ -363,7 +393,9 @@ int UsbEndpointIn::write(const void *src, int len)
         memcpy(buf, src, len);
         writeEP(buf, ep, len);
         len -= n;
-        src = (const uint8_t*)src + n;
+        src = (const uint8_t *)src + n;
+        if (!len)
+            break;
     }
 
     // send ZLP manually if needed.

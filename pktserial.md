@@ -5,7 +5,7 @@ Nodes are connected in a network, usually in daisy-chain topology.
 
 It is designed to be inexpensive to implement and extensible.
 
-The protocol uses MCU's UART peripheral. The UART is run at 921600 baud using 3.3V TTL levels.
+The protocol uses MCU's UART peripheral. The UART is run at 1,000,000 baud using 3.3V TTL levels.
 As of 2018 even the cheapest ($0.40) ARM Cortex-M0 MCU implement such UARTs.
 To allow for re-defining the speed easily,
 we use bauds as units of time in this document (where 1 bauds is around 1us as per the

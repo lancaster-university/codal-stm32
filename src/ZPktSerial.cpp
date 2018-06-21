@@ -84,7 +84,7 @@ void ZPktSerial::_complete(uint32_t instance, uint32_t mode)
             if (mode == 0)
                 HAL_UART_IRQHandler(&instances[i]->uart);
             else if (mode == CODAL_PKTSERIAL_EVT_DATA_RECEIVED) {
-                instances[i]->queue(curr);
+                instances[i]->queue(instances[i]->curr);
                 instances[i]->startToListen();
             } else 
                 Event(instances[i]->id, mode);
@@ -93,17 +93,17 @@ void ZPktSerial::_complete(uint32_t instance, uint32_t mode)
     }
 }
 
-extern "C" void HAL_UART_TxCpltCallback(USART_HandleTypeDef *hspi)
+extern "C" void HAL_UART_TxCpltCallback(UART_HandleTypeDef *hspi)
 {
     ZPktSerial::_complete((uint32_t)hspi->Instance, CODAL_PKTSERIAL_EVT_DATA_SENT);
 }
 
-extern "C" void HAL_UART_RxCpltCallback(USART_HandleTypeDef *hspi)
+extern "C" void HAL_UART_RxCpltCallback(UART_HandleTypeDef *hspi)
 {
     ZPktSerial::_complete((uint32_t)hspi->Instance, CODAL_PKTSERIAL_EVT_DATA_RECEIVED);
 }
 
-extern "C" void HAL_UART_ErrorCallback(USART_HandleTypeDef *hspi)
+extern "C" void HAL_UART_ErrorCallback(UART_HandleTypeDef *hspi)
 {
     ZPktSerial::_complete((uint32_t)hspi->Instance, CODAL_PKTSERIAL_EVT_ERROR);
 }
@@ -135,6 +135,8 @@ void ZPktSerial::start()
 
     LOG("USART instance %p", uart.Instance);
 
+    enable_clock((uint32_t)uart.Instance);
+
     dma_init((uint32_t)uart.Instance, DMA_TX, &hdma_tx);
     __HAL_LINKDMA(&uart, hdmatx, hdma_tx);
 
@@ -160,12 +162,13 @@ void ZPktSerial::start()
 
 void ZPktSerial::enableUart()
 {
-    pin_function(tx, pinmap_function(tx, PinMap_UART_TX));
+    auto pin = tx->name;
+    pin_function(pin, pinmap_function(pin, PinMap_UART_TX));
     pin_mode(pin, PullNone);
     __HAL_UART_ENABLE(&uart);
 }
 
-void ZPktSerial::onTxRise()
+void ZPktSerial::onTxRise(Event e)
 {
     if (UART_ON)
         return;
@@ -176,13 +179,13 @@ void ZPktSerial::onTxRise()
     uint16_t sz = 0;
     int res;
 
-    res = HAL_UART_Receive(&uart, &sz, 2);
+    res = HAL_UART_Receive(&uart, (uint8_t*)&sz, 2, 3);
     if (res == HAL_OK && 0 < sz && sz < 4096)
     {
         if (curr)
             free(curr);
         curr = PktSerialPkt::alloc(sz);
-        res = HAL_UART_Receive_DMA(&uart, &curr->crc, sz);
+        res = HAL_UART_Receive_DMA(&uart, (uint8_t*)&curr->crc, sz);
         if (res != HAL_OK)
         {
             free(curr);
@@ -202,7 +205,7 @@ void ZPktSerial::startToListen()
     tx->eventOn(DEVICE_PIN_EVENT_ON_EDGE);
 }
 
-ZPktSerial::ZPktSerial(int id, Pin &tx) : codal::USART()
+ZPktSerial::ZPktSerial(int id, Pin &tx) : codal::PktSerial()
 {
     this->tx = &tx;
     this->id = id;
@@ -210,9 +213,6 @@ ZPktSerial::ZPktSerial(int id, Pin &tx) : codal::USART()
     ZERO(uart);
     ZERO(hdma_tx);
     ZERO(hdma_rx);
-
-    this->needsInit = true;
-    this->transferCompleteEventCode = codal::allocateNotifyEvent();
 
     for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
     {
@@ -224,11 +224,11 @@ ZPktSerial::ZPktSerial(int id, Pin &tx) : codal::USART()
     }
 }
 
-int ZPktSerial::send(PktSerialPkt *pkt)
+int ZPktSerial::send(const PktSerialPkt *pkt)
 {
     int res;
 
-    LOG("USART start %p/%d", txBuffer, txSize);
+    LOG("USART start %p/%d", pkt, pkt->size);
 
     while (UART_ON)
     {
@@ -241,16 +241,15 @@ int ZPktSerial::send(PktSerialPkt *pkt)
 
     enableUart();
     HAL_HalfDuplex_EnableTransmitter(&uart);
-    uint16_t sz = txSize;
 
-    res = HAL_UART_Transmit(&uart, &pkt.size, 2);
+    res = HAL_UART_Transmit(&uart, (uint8_t*)&pkt->size, 2, 3);
     CODAL_ASSERT(res == HAL_OK);
 
     wait_us(30);
 
     fiber_wake_on_event(id, CODAL_PKTSERIAL_EVT_DATA_SENT);
 
-    res = HAL_UART_Transmit_DMA(&uart, (uint8_t *)&pkt.crc, pkt.size);
+    res = HAL_UART_Transmit_DMA(&uart, (uint8_t *)&pkt->crc, pkt->size);
     CODAL_ASSERT(res == HAL_OK);
 
     schedule();

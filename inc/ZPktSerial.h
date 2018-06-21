@@ -28,6 +28,7 @@ DEALINGS IN THE SOFTWARE.
 #include "CodalConfig.h"
 #include "codal-core/inc/driver-models/PktSerial.h"
 #include "Pin.h"
+#include "Event.h"
 
 namespace codal
 {
@@ -38,13 +39,13 @@ protected:
     Pin *tx;
     PktSerialPkt *curr;
 
-    USART_HandleTypeDef uart;
+    UART_HandleTypeDef uart;
     DMA_HandleTypeDef hdma_tx;
     DMA_HandleTypeDef hdma_rx;
 
     void enableUart();
     void startToListen();
-    void onTxRise();
+    void onTxRise(Event e);
 
 public:
     static void _complete(uint32_t instance, uint32_t ev);

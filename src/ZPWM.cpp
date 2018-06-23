@@ -39,7 +39,7 @@ ZPWM::ZPWM(Pin &pin, DataSource &source, int sampleRate, uint16_t id) : upstream
     // Configure hardware for requested sample rate.
     setSampleRate(sampleRate);
 
-    dma_init((uint32_t)tim.Instance, this->channel + DMA_TIM_CH1 - 1, &hdma_left, DMA_FLAG_2BYTE);
+    dma_init((uint32_t)tim.Instance, this->channel + DMA_TIM_CH1 - 1, &hdma_left, DMA_FLAG_4BYTE);
     __HAL_LINKDMA(&tim, hdma[this->channel], hdma_left);
 
     // Enable the PWM module
@@ -80,7 +80,7 @@ static const uint32_t channels[] = {
  */
 int ZPWM::setSampleRate(int frequency)
 {
-    int clock_frequency = HAL_RCC_GetPCLK1Freq();
+    int clock_frequency = 2 * HAL_RCC_GetPCLK1Freq();
     int cyclesPerSample = clock_frequency / frequency;
 
 #ifdef SOUND_8_BIT
@@ -90,7 +90,7 @@ int ZPWM::setSampleRate(int frequency)
     CODAL_ASSERT(period_ticks >= 256);
     CODAL_ASSERT(period_ticks <= 512); // in reality it should be 260 or so
 #else                                  // 16 bit
-    int prescaler = cyclesPerSample / 0x7fff;
+    int prescaler = cyclesPerSample / 1200;
     if (prescaler == 0)
         prescaler = 1;
     int period_ticks = clock_frequency / (prescaler * frequency);
@@ -151,7 +151,7 @@ int ZPWM::pull()
     output = upstream.pull();
     dataReady--;
 
-#if 0
+#if 1
     static uint32_t *buf;
     auto len = output.length() / 2;
     delete buf;
@@ -162,7 +162,7 @@ int ZPWM::pull()
 #endif
 
     auto res =
-        HAL_TIM_PWM_Start_DMA(&tim, channels[this->channel - 1], (uint32_t*)&output[0], output.length());
+        HAL_TIM_PWM_Start_DMA(&tim, channels[this->channel - 1], buf, len);
     CODAL_ASSERT(res == HAL_OK);
 
     active = true;

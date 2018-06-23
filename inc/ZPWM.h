@@ -8,7 +8,7 @@
 #include "DataStream.h"
 
 #ifndef ZPWM_DEFAULT_FREQUENCY
-#define ZPWM_DEFAULT_FREQUENCY 16000
+#define ZPWM_DEFAULT_FREQUENCY 44100
 #endif
 
 using namespace codal;

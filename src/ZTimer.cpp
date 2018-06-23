@@ -15,6 +15,7 @@ ZTimer::ZTimer() : codal::Timer()
     memset(&TimHandle, 0, sizeof(TimHandle));
     instance = this;
     this->prev = 0;
+    init();
 }
 
 extern "C" void TIM5_IRQHandler()

@@ -26,7 +26,14 @@ private:
     int dataReady;
     int sampleRate;
     int channel;
+
     int repCount;
+    uint32_t *buf0, *buf1;
+    uint32_t bufCnt; // size of buffer is repCount*bufCnt*4 bytes
+    uint32_t outptr;
+
+    void fillBuffer(uint32_t *buf);
+    void nextBuffer();
 
 public:
     // The stream component that is serving our data
@@ -47,11 +54,6 @@ public:
      * Callback provided when data is ready.
      */
     virtual int pullRequest();
-
-    /**
-     * Pull down a buffer from upstream, and schedule a DMA transfer from it.
-     */
-    int pull();
 
     /**
      * Determine the DAC playback sample rate to the given frequency.

@@ -18,6 +18,11 @@ ZPWM::ZPWM(Pin &pin, DataSource &source, int sampleRate, uint16_t id) : upstream
         }
     }
 
+    buf0 = NULL;
+    buf1 = NULL;
+    bufCnt = 0;
+    outptr = 0;
+
     pin.setDigitalValue(0);
 
     pwmout_t pwm;
@@ -134,41 +139,89 @@ int ZPWM::pullRequest()
     dataReady++;
 
     if (!active)
-        pull();
+        nextBuffer();
 
     return DEVICE_OK;
 }
 
-/**
- * Pull down a buffer from upstream, and schedule a DMA transfer from it.
- */
-int ZPWM::pull()
+void ZPWM::fillBuffer(uint32_t *buf)
 {
-    output = upstream.pull();
-    dataReady--;
+    auto left = bufCnt;
+    auto buflen = buf++;
 
-#if 1
-    static uint32_t *buf;
-    auto len = output.length() / 2;
-    delete buf;
-    buf = new uint32_t[len * repCount];
-    auto tmp = (uint16_t *)&output[0];
-    auto dst = 0;
-    for (int i = 0; i < len; ++i)
+    while (left)
     {
-        auto n = repCount;
-        while (n--)
-            buf[dst++] = tmp[i] >> 2;
+        auto len = output.length() - outptr;
+        while (len <= 0)
+        {
+            if (!dataReady)
+                break;
+            dataReady--;
+            output = upstream.pull();
+            outptr = 0;
+            len = output.length();
+        }
+
+        auto src = (uint16_t *)&output[outptr];
+        auto num = len >> 1;
+        if (num > left)
+            num = left;
+        outptr += num << 1;
+
+        for (uint32_t i = 0; i < num; ++i)
+        {
+            uint32_t s = src[i] >> 2;
+            auto n = repCount;
+            while (n--)
+                *buf++ = s;
+        }
+
+        left -= num;
     }
-    len *= repCount;
-#endif
 
-    auto res = HAL_TIM_PWM_Start_DMA(&tim, channels[this->channel - 1], buf, len);
-    CODAL_ASSERT(res == HAL_OK);
+    *buflen = bufCnt - left;
+}
 
-    active = true;
+void ZPWM::nextBuffer()
+{
+    if (!buf0)
+    {
+        bufCnt = 300 / repCount;
+        buf0 = new uint32_t[bufCnt * repCount + 1];
+        buf1 = new uint32_t[bufCnt * repCount + 1];
+    }
 
-    return DEVICE_OK;
+    // do we have something to send?
+    // we need to start sending, before we start filling buffers
+    // to avoid gaps
+    auto buf = buf0;
+    if (!*buf)
+        buf = buf1;
+    if (*buf)
+    {
+        auto ch = channels[this->channel - 1];
+        auto res = HAL_TIM_PWM_Start_DMA(&tim, ch, buf + 1, *buf * repCount);
+        // no longer something to send
+        *buf = 0;
+        CODAL_ASSERT(res == HAL_OK);
+        active = true;
+    }
+    else
+    {
+        active = false;
+        buf = NULL;
+    }
+
+    // if buf0 wasn't what we're sending and it's empty, fill it
+    if (buf != buf0 && !*buf0)
+        fillBuffer(buf0);
+    // ditto for buf1
+    if (buf != buf1 && !*buf1)
+        fillBuffer(buf1);
+
+    // if we didn't start playing and now have some data to play, try again
+    if (buf == NULL && *buf0)
+        nextBuffer();
 }
 
 /**
@@ -177,10 +230,7 @@ int ZPWM::pull()
 void ZPWM::irq()
 {
     // once the sequence has finished playing, load up the next buffer.
-    if (dataReady)
-        pull();
-    else
-        active = false;
+    nextBuffer();
 }
 
 /**

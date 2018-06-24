@@ -83,21 +83,17 @@ int ZPWM::setSampleRate(int frequency)
     int clock_frequency = 2 * HAL_RCC_GetPCLK1Freq();
     int cyclesPerSample = clock_frequency / frequency;
 
-#ifdef SOUND_8_BIT
     int prescaler = cyclesPerSample / 256;
     int period_ticks = clock_frequency / (prescaler * frequency);
 
     CODAL_ASSERT(period_ticks >= 256);
     CODAL_ASSERT(period_ticks <= 512); // in reality it should be 260 or so
-#else                                  // 16 bit
-    int prescaler = cyclesPerSample / 1200;
-    if (prescaler == 0)
-        prescaler = 1;
-    int period_ticks = clock_frequency / (prescaler * frequency);
-#endif
 
-    tim.Init.Prescaler = prescaler - 1;
+    // tim.Init.Prescaler = prescaler - 1;
     tim.Init.Period = period_ticks;
+    // tim.Init.RepetitionCounter = prescaler - 1; // TIM1 or TIM8 only
+
+    repCount = prescaler;
 
     // Update our internal record to reflect an accurate (probably rounded) samplerate.
     sampleRate = (clock_frequency / prescaler) / period_ticks;
@@ -155,14 +151,19 @@ int ZPWM::pull()
     static uint32_t *buf;
     auto len = output.length() / 2;
     delete buf;
-    buf = new uint32_t[ len ];
-    auto tmp = (uint16_t*)&output[0];
+    buf = new uint32_t[len * repCount];
+    auto tmp = (uint16_t *)&output[0];
+    auto dst = 0;
     for (int i = 0; i < len; ++i)
-        buf[i] = tmp[i];
+    {
+        auto n = repCount;
+        while (n--)
+            buf[dst++] = tmp[i] >> 2;
+    }
+    len *= repCount;
 #endif
 
-    auto res =
-        HAL_TIM_PWM_Start_DMA(&tim, channels[this->channel - 1], buf, len);
+    auto res = HAL_TIM_PWM_Start_DMA(&tim, channels[this->channel - 1], buf, len);
     CODAL_ASSERT(res == HAL_OK);
 
     active = true;

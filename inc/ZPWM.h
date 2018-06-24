@@ -26,6 +26,7 @@ private:
     int dataReady;
     int sampleRate;
     int channel;
+    int repCount;
 
 public:
     // The stream component that is serving our data

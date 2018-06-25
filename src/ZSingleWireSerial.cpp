@@ -5,6 +5,8 @@
 #include "dma.h"
 #include "pinmap.h"
 #include "PeripheralPins.h"
+#include "CodalFiber.h"
+
 using namespace codal;
 
 #define TX_CONFIGURED       0x02
@@ -52,25 +54,20 @@ static int enable_clock(uint32_t instance)
 
 void ZSingleWireSerial::_complete(uint32_t instance, uint32_t mode)
 {
-    LOG("USART complete %p m=%d", instance, mode);
     for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
     {
         if (instances[i] && (uint32_t)instances[i]->uart.Instance == instance)
         {
             if (mode == 0)
                 HAL_UART_IRQHandler(&instances[i]->uart);
-            else if (mode == SWS_EVT_DATA_RECEIVED)
-            {
-                uint8_t* buf = (uint8_t *)instances[i]->currentBuffer;
-                HAL_UART_Receive(&instances[i]->uart, buf + instances[i]->currentBufferIndex, 1, 3);
-            }
-            else if (mode == SWS_EVT_ERROR)
-            {
-                char c = 'p';
-                HAL_UART_Transmit(&instances[i]->uart, (uint8_t *)&c, 1, 3);
-            }
             else
-                Event(instances[i]->id, mode);
+            {
+                Event evt(instances[i]->id, mode, CREATE_ONLY);
+
+                if (instances[i]->cb)
+                    instances[i]->cb->fire(evt);
+            }
+
             break;
         }
     }
@@ -88,7 +85,7 @@ extern "C" void HAL_UART_RxCpltCallback(UART_HandleTypeDef *hspi)
 
 extern "C" void HAL_UART_ErrorCallback(UART_HandleTypeDef *hspi)
 {
-    ZSingleWireSerial::_complete((uint32_t)hspi->Instance, SWS_EVT_ERROR);
+    ZSingleWireSerial::_complete((uint32_t)hspi->Instance, SWS_EVT_DATA_RECEIVED);
 }
 
 #define DEFIRQ(nm, id)                                                                             \
@@ -105,23 +102,24 @@ void ZSingleWireSerial::configureRxInterrupt(int enable)
 {
 }
 
-ZSingleWireSerial::ZSingleWireSerial(Pin& p) : SingleWireSerial(p)
+ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
 {
     ZERO(uart);
     ZERO(hdma_tx);
     ZERO(hdma_rx);
 
+    // only the TX pin is operable in half-duplex mode
     uart.Instance = (USART_TypeDef *)pinmap_peripheral(p.name, PinMap_UART_TX);
 
     LOG("USART instance %p", uart.Instance);
 
     enable_clock((uint32_t)uart.Instance);
 
-    dma_init((uint32_t)uart.Instance, DMA_TX, &hdma_tx);
-    __HAL_LINKDMA(&uart, hdmatx, hdma_tx);
-
     dma_init((uint32_t)uart.Instance, DMA_RX, &hdma_rx);
     __HAL_LINKDMA(&uart, hdmarx, hdma_rx);
+
+    dma_init((uint32_t)uart.Instance, DMA_TX, &hdma_tx);
+    __HAL_LINKDMA(&uart, hdmatx, hdma_tx);
 
     // set some reasonable defaults
     uart.Init.BaudRate = 115200;
@@ -152,36 +150,22 @@ int ZSingleWireSerial::setBaud(uint32_t baud)
 
 int ZSingleWireSerial::putc(char c)
 {
-    if (!(status & TX_CONFIGURED))
-        return DEVICE_INVALID_PARAMETER;
-
-    HAL_UART_Transmit(&uart, (uint8_t *)&c, 1, 3);
-    return DEVICE_OK;
-}
-
-int ZSingleWireSerial::rawGetc()
-{
-    if (!(status & RX_CONFIGURED))
-        return DEVICE_INVALID_PARAMETER;
+    return send((uint8_t*)&c, 1);
 }
 
 int ZSingleWireSerial::getc()
 {
     char c = 0;
+    int res = receive((uint8_t*)&c, 1);
 
-    int ret = HAL_UART_Receive(&uart, (uint8_t *)&c, 1, 3);
-    if (ret == HAL_OK)
+    if (res == DEVICE_OK)
         return c;
 
-    return DEVICE_CANCELLED;
+    return res;
 }
 
 int ZSingleWireSerial::configureTx(int enable)
 {
-    if ((status & RX_CONFIGURED))
-        return DEVICE_INVALID_PARAMETER;
-
-    // enable tx
     if (enable)
     {
         uint8_t pin = (uint8_t)p.name;
@@ -197,13 +181,12 @@ int ZSingleWireSerial::configureTx(int enable)
         __HAL_UART_DISABLE(&uart);
         status &= ~TX_CONFIGURED;
     }
+
+    return DEVICE_OK;
 }
 
 int ZSingleWireSerial::configureRx(int enable)
 {
-    if ((status & TX_CONFIGURED))
-        return DEVICE_INVALID_PARAMETER;
-    // rx enable
     if (enable)
     {
         uint8_t pin = (uint8_t)p.name;
@@ -212,7 +195,6 @@ int ZSingleWireSerial::configureRx(int enable)
         uart.Init.Mode = UART_MODE_RX;
         HAL_HalfDuplex_Init(&uart);
         __HAL_UART_ENABLE(&uart);
-        HAL_HalfDuplex_EnableReceiver(&uart);
         status |= RX_CONFIGURED;
     }
     else
@@ -220,6 +202,8 @@ int ZSingleWireSerial::configureRx(int enable)
         __HAL_UART_DISABLE(&uart);
         status &= ~RX_CONFIGURED;
     }
+
+    return DEVICE_OK;
 }
 
 int ZSingleWireSerial::setMode(SingleWireMode sw)
@@ -229,11 +213,66 @@ int ZSingleWireSerial::setMode(SingleWireMode sw)
         configureTx(0);
         configureRx(1);
     }
-    else
+    else if (sw == SingleWireTx)
     {
         configureRx(0);
         configureTx(1);
     }
+    else
+    {
+        configureTx(0);
+        configureRx(0);
+    }
+
+    return DEVICE_OK;
+}
+
+int ZSingleWireSerial::send(uint8_t* data, int len)
+{
+    if (!(status & TX_CONFIGURED))
+        setMode(SingleWireTx);
+
+    int res = HAL_UART_Transmit(&uart, data, len, 3);
+
+    if (res == HAL_OK)
+        return DEVICE_OK;
+
+    return DEVICE_CANCELLED;
+}
+
+int ZSingleWireSerial::receive(uint8_t* data, int len)
+{
+    if (!(status & RX_CONFIGURED))
+        setMode(SingleWireRx);
+
+    int res = HAL_UART_Receive(&uart, data, len, 3);
+
+    if (res == HAL_OK)
+        return DEVICE_OK;
+
+    return DEVICE_CANCELLED;
+}
+
+int ZSingleWireSerial::sendDMA(uint8_t* data, int len)
+{
+    if (!(status & TX_CONFIGURED))
+        setMode(SingleWireTx);
+
+    int res = HAL_UART_Transmit_DMA(&uart, data, len);
+
+    CODAL_ASSERT(res == HAL_OK);
+
+    return DEVICE_OK;
+}
+
+int ZSingleWireSerial::receiveDMA(uint8_t* data, int len)
+{
+    if (!(status & RX_CONFIGURED))
+        setMode(SingleWireRx);
+
+    int res = HAL_UART_Receive_DMA(&uart, data, len);
+
+    CODAL_ASSERT(res == HAL_OK);
 
     return DEVICE_OK;
 }
@@ -244,4 +283,5 @@ int ZSingleWireSerial::sendBreak()
         return DEVICE_INVALID_PARAMETER;
 
     HAL_LIN_SendBreak(&uart);
+    return DEVICE_OK;
 }

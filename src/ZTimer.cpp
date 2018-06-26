@@ -52,6 +52,8 @@ void ZTimer::init()
 
 void ZTimer::triggerIn(CODAL_TIMESTAMP t)
 {
+    if (t < 100)
+        t = 100;
     this->syncRequest();
     __HAL_TIM_DISABLE_IT(&TimHandle, TIM_IT_CC1);
     __HAL_TIM_SET_COMPARE(&TimHandle, TIM_CHANNEL_1, (uint32_t)(this->prev + t));

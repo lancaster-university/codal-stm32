@@ -15,11 +15,13 @@ ZTimer::ZTimer() : codal::Timer()
     memset(&TimHandle, 0, sizeof(TimHandle));
     instance = this;
     this->prev = 0;
+    init();
 }
 
 extern "C" void TIM5_IRQHandler()
 {
     auto h = &ZTimer::instance->TimHandle;
+    HAL_TIM_IRQHandler(h);
     if (__HAL_TIM_GET_FLAG(h, TIM_FLAG_CC1) == SET)
     {
         if (__HAL_TIM_GET_IT_SOURCE(h, TIM_IT_CC1) == SET)
@@ -43,6 +45,7 @@ void ZTimer::init()
     if (HAL_TIM_OC_Init(&TimHandle) != HAL_OK)
         CODAL_ASSERT(0);
 
+    NVIC_SetPriority(TIM5_IRQn,0);
     NVIC_EnableIRQ(TIM5_IRQn);
     HAL_TIM_OC_Start(&TimHandle, TIM_CHANNEL_1);
 

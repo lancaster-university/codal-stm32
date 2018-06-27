@@ -58,6 +58,12 @@ void ZSingleWireSerial::_complete(uint32_t instance, uint32_t mode)
     {
         if (instances[i] && (uint32_t)instances[i]->uart.Instance == instance)
         {
+            if (mode == SWS_EVT_ERROR)
+            {
+                codal_dmesg("ERROR %d", HAL_UART_GetError(&instances[i]->uart));
+                HAL_UART_Abort(&instances[i]->uart);
+            }
+
             if (mode == 0)
                 HAL_UART_IRQHandler(&instances[i]->uart);
             else
@@ -85,7 +91,7 @@ extern "C" void HAL_UART_RxCpltCallback(UART_HandleTypeDef *hspi)
 
 extern "C" void HAL_UART_ErrorCallback(UART_HandleTypeDef *hspi)
 {
-    ZSingleWireSerial::_complete((uint32_t)hspi->Instance, SWS_EVT_DATA_RECEIVED);
+    ZSingleWireSerial::_complete((uint32_t)hspi->Instance, SWS_EVT_ERROR);
 }
 
 #define DEFIRQ(nm, id)                                                                             \
@@ -110,8 +116,6 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
 
     // only the TX pin is operable in half-duplex mode
     uart.Instance = (USART_TypeDef *)pinmap_peripheral(p.name, PinMap_UART_TX);
-
-    LOG("USART instance %p", uart.Instance);
 
     enable_clock((uint32_t)uart.Instance);
 
@@ -166,19 +170,18 @@ int ZSingleWireSerial::getc()
 
 int ZSingleWireSerial::configureTx(int enable)
 {
-    if (enable)
+    if (enable && !(status & TX_CONFIGURED))
     {
         uint8_t pin = (uint8_t)p.name;
         pin_function(pin, pinmap_function(pin, PinMap_UART_TX));
         pin_mode(pin, PullNone);
         uart.Init.Mode = UART_MODE_TX;
         HAL_HalfDuplex_Init(&uart);
-        __HAL_UART_ENABLE(&uart);
         status |= TX_CONFIGURED;
     }
-    else
+    else if (status & TX_CONFIGURED)
     {
-        __HAL_UART_DISABLE(&uart);
+        HAL_UART_DeInit(&uart);
         status &= ~TX_CONFIGURED;
     }
 
@@ -187,19 +190,18 @@ int ZSingleWireSerial::configureTx(int enable)
 
 int ZSingleWireSerial::configureRx(int enable)
 {
-    if (enable)
+    if (enable && !(status & RX_CONFIGURED))
     {
         uint8_t pin = (uint8_t)p.name;
         pin_function(pin, pinmap_function(pin, PinMap_UART_TX));
-        pin_mode(pin, PullNone);
+        // pin_mode(pin, PullNone);
         uart.Init.Mode = UART_MODE_RX;
         HAL_HalfDuplex_Init(&uart);
-        __HAL_UART_ENABLE(&uart);
         status |= RX_CONFIGURED;
     }
-    else
+    else if (status & RX_CONFIGURED)
     {
-        __HAL_UART_DISABLE(&uart);
+        HAL_UART_DeInit(&uart);
         status &= ~RX_CONFIGURED;
     }
 

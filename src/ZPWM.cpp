@@ -94,11 +94,18 @@ int ZPWM::setSampleRate(int frequency)
     CODAL_ASSERT(period_ticks >= 256);
     CODAL_ASSERT(period_ticks <= 512); // in reality it should be 260 or so
 
-    // tim.Init.Prescaler = prescaler - 1;
     tim.Init.Period = period_ticks;
-    // tim.Init.RepetitionCounter = prescaler - 1; // TIM1 or TIM8 only
-
-    repCount = prescaler;
+    if (IS_TIM_ADVANCED_INSTANCE(tim.Instance) && false)
+    {
+        // this doesn't seem to work - it indeed repeats values, but it seem to trigger
+        // DMA for every cycle, so only every 1 of prescaler words in memory is actually used
+        tim.Init.RepetitionCounter = prescaler - 1; // TIM1 or TIM8 only
+        repCount = 1;
+    }
+    else
+    {
+        repCount = prescaler;
+    }
 
     // Update our internal record to reflect an accurate (probably rounded) samplerate.
     sampleRate = (clock_frequency / prescaler) / period_ticks;
@@ -152,7 +159,8 @@ void ZPWM::fillBuffer(uint32_t *buf)
     while (left)
     {
         auto len = output.length() - outptr;
-        while (len <= 0)
+
+        if (len <= 0)
         {
             if (!dataReady)
                 break;
@@ -160,6 +168,8 @@ void ZPWM::fillBuffer(uint32_t *buf)
             output = upstream.pull();
             outptr = 0;
             len = output.length();
+            if (len == 0)
+                break;
         }
 
         auto src = (uint16_t *)&output[outptr];
@@ -186,7 +196,10 @@ void ZPWM::nextBuffer()
 {
     if (!buf0)
     {
-        bufCnt = 300 / repCount;
+        if (tim.Init.RepetitionCounter)
+            bufCnt = 300 / (1 + tim.Init.RepetitionCounter);
+        else
+            bufCnt = 300 / repCount;
         buf0 = new uint32_t[bufCnt * repCount + 1];
         buf1 = new uint32_t[bufCnt * repCount + 1];
     }

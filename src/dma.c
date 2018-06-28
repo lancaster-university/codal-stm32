@@ -74,6 +74,13 @@ MBED_WEAK const DmaMap TheDmaMap[] = //
         {USART6_BASE, DMA_TX, 2, 6, 5},
         {USART6_BASE, DMA_TX, 2, 7, 5},
 
+        // 
+        {TIM1_BASE, DMA_TIM_CH1, 2, 1, 6},
+        {TIM1_BASE, DMA_TIM_CH2, 2, 2, 6},
+        {TIM1_BASE, DMA_TIM_CH1, 2, 3, 6},
+        {TIM1_BASE, DMA_TIM_CH4, 2, 4, 6},
+        {TIM1_BASE, DMA_TIM_CH3, 2, 6, 6},
+
         //
         {TIM2_BASE, DMA_TIM_CH3, 1, 1, 3},
         {TIM2_BASE, DMA_TIM_CH1, 1, 5, 3},

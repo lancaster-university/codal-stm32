@@ -21,7 +21,7 @@ ZTimer::ZTimer() : codal::Timer()
 extern "C" void TIM5_IRQHandler()
 {
     auto h = &ZTimer::instance->TimHandle;
-    HAL_TIM_IRQHandler(h);
+
     if (__HAL_TIM_GET_FLAG(h, TIM_FLAG_CC1) == SET)
     {
         if (__HAL_TIM_GET_IT_SOURCE(h, TIM_IT_CC1) == SET)
@@ -61,12 +61,16 @@ void ZTimer::triggerIn(CODAL_TIMESTAMP t)
     __HAL_TIM_SET_COMPARE(&TimHandle, TIM_CHANNEL_1, (uint32_t)(this->prev + t));
     __HAL_TIM_ENABLE_IT(&TimHandle, TIM_IT_CC1);
 }
-
+extern "C" uint32_t uwTick;
 void ZTimer::syncRequest()
 {
     target_disable_irq();
     uint32_t curr = __HAL_TIM_GET_COUNTER(&TimHandle);
     uint32_t delta = curr - this->prev;
+
+    // update the hal...
+    uwTick += delta / 1000;
+
     this->prev = curr;
     this->sync(delta);
     target_enable_irq();

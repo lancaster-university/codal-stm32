@@ -91,6 +91,8 @@ protected:
     virtual int disableEvents();
 
 public:
+    void disconnect();
+
     void eventCallback();
 
     /**

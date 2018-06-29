@@ -97,28 +97,34 @@ ZPin::ZPin(int id, PinNumber name, PinCapability capability) : codal::Pin(id, na
     this->pwmCfg = NULL;
 }
 
-void ZPin::config(int status)
+void ZPin::disconnect()
 {
     if (this->status & IO_STATUS_ANALOG_OUT)
     {
-        delete this->pwmCfg;
+        if (this->pwmCfg)
+            delete this->pwmCfg;
         this->pwmCfg = NULL;
     }
 
     if (this->status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE))
     {
         EXTI->IMR &= ~GPIO_PIN();
-        delete this->evCfg;
+        if (this->evCfg)
+            delete this->evCfg;
         this->evCfg = NULL;
     }
 
     if (this->status & IO_STATUS_TOUCH_IN)
     {
-        delete this->btn;
+        if (this->btn)
+            delete this->btn;
         this->btn = NULL;
     }
+}
 
-    this->status = status;
+void ZPin::config(int status)
+{
+    disconnect();
 
     int mode = STM_PIN_INPUT;
     int pull = GPIO_NOPULL;
@@ -577,7 +583,7 @@ int ZPin::enableRiseFallEvents(int eventType)
     // if we are in neither of the two modes, configure pin as a TimedInterruptIn.
     if (!(status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)))
     {
-        config(0);
+        config(IO_STATUS_DIGITAL_IN);
 
         enable_irqs();
 
@@ -597,7 +603,10 @@ int ZPin::enableRiseFallEvents(int eventType)
         EXTI->RTSR |= GPIO_PIN();
         EXTI->FTSR |= GPIO_PIN();
 
-        auto cfg = this->evCfg = new ZEventConfig;
+        if (this->evCfg == NULL)
+            this->evCfg = new ZEventConfig;
+
+        auto cfg = this->evCfg;
         cfg->prevPulse = 0;
     }
 

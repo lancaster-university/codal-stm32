@@ -18,6 +18,9 @@ namespace codal
         DMA_HandleTypeDef hdma_tx;
         DMA_HandleTypeDef hdma_rx;
 
+        uint8_t* buf;
+        uint16_t bufLen;
+
         protected:
         virtual void configureRxInterrupt(int enable);
 
@@ -43,6 +46,7 @@ namespace codal
 
         virtual int sendDMA(uint8_t* data, int len);
         virtual int receiveDMA(uint8_t* data, int len);
+        virtual int abortDMA();
 
         virtual int setBaud(uint32_t baud);
 

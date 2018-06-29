@@ -128,10 +128,10 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
 
     enable_clock((uint32_t)uart.Instance);
 
-    dma_init((uint32_t)uart.Instance, DMA_RX, &hdma_rx);
+    dma_init((uint32_t)uart.Instance, DMA_RX, &hdma_rx, 0);
     __HAL_LINKDMA(&uart, hdmarx, hdma_rx);
 
-    dma_init((uint32_t)uart.Instance, DMA_TX, &hdma_tx);
+    dma_init((uint32_t)uart.Instance, DMA_TX, &hdma_tx, 0);
     __HAL_LINKDMA(&uart, hdmatx, hdma_tx);
 
     // set some reasonable defaults

@@ -59,17 +59,46 @@ MBED_WEAK const DmaMap TheDmaMap[] = //
         {SPI3_BASE, DMA_TX, 1, 5, 0},
         {SPI3_BASE, DMA_TX, 1, 7, 0},
 
-        // 
+        //
         {USART1_BASE, DMA_RX, 2, 2, 4},
         {USART1_BASE, DMA_RX, 2, 5, 4},
         {USART1_BASE, DMA_TX, 2, 7, 4},
 
-        // 
+        //
         {USART2_BASE, DMA_RX, 1, 5, 4},
         {USART2_BASE, DMA_TX, 1, 6, 4},
 
-        // 
+        //
         {USART6_BASE, DMA_RX, 2, 1, 5},
+        {USART6_BASE, DMA_RX, 2, 2, 5},
+        {USART6_BASE, DMA_TX, 2, 6, 5},
+        {USART6_BASE, DMA_TX, 2, 7, 5},
+
+        // 
+        {TIM1_BASE, DMA_TIM_CH1, 2, 1, 6},
+        {TIM1_BASE, DMA_TIM_CH2, 2, 2, 6},
+        {TIM1_BASE, DMA_TIM_CH1, 2, 3, 6},
+        {TIM1_BASE, DMA_TIM_CH4, 2, 4, 6},
+        {TIM1_BASE, DMA_TIM_CH3, 2, 6, 6},
+
+        //
+        {TIM2_BASE, DMA_TIM_CH3, 1, 1, 3},
+        {TIM2_BASE, DMA_TIM_CH1, 1, 5, 3},
+        {TIM2_BASE, DMA_TIM_CH2, 1, 6, 3},
+        //{TIM2_BASE, DMA_TIM_CH4, 1, 6, 3}, // duplicate TIM channels on a single DMA stream
+        {TIM2_BASE, DMA_TIM_CH4, 1, 7, 3},
+
+        // 
+        {TIM3_BASE, DMA_TIM_CH4, 1, 2, 5},
+        {TIM3_BASE, DMA_TIM_CH1, 1, 4, 5},
+        {TIM3_BASE, DMA_TIM_CH2, 1, 5, 5},
+        {TIM3_BASE, DMA_TIM_CH3, 1, 7, 5},
+
+        //
+        {TIM4_BASE, DMA_TIM_CH1, 1, 0, 2},
+        {TIM4_BASE, DMA_TIM_CH2, 1, 3, 2},
+        {TIM4_BASE, DMA_TIM_CH3, 1, 7, 2},
+
         {USART6_BASE, DMA_RX, 2, 2, 5},
         {USART6_BASE, DMA_TX, 2, 6, 5},
         {USART6_BASE, DMA_TX, 2, 7, 5},
@@ -106,7 +135,7 @@ DEFIRQ(DMA2_Stream5_IRQHandler, NUM_STREAMS + 5)
 DEFIRQ(DMA2_Stream6_IRQHandler, NUM_STREAMS + 6)
 DEFIRQ(DMA2_Stream7_IRQHandler, NUM_STREAMS + 7)
 
-int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj)
+int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flags)
 {
     memset(obj, 0, sizeof(*obj));
 
@@ -133,14 +162,26 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj)
     obj->Instance = streams[id].instance;
 
     obj->Init.Channel = channels[map->channel];
-    obj->Init.Direction = rxdx == DMA_TX ? DMA_MEMORY_TO_PERIPH : DMA_PERIPH_TO_MEMORY;
+    obj->Init.Direction = rxdx == DMA_RX ? DMA_PERIPH_TO_MEMORY : DMA_MEMORY_TO_PERIPH;
     obj->Init.PeriphInc = DMA_PINC_DISABLE;
     obj->Init.MemInc = DMA_MINC_ENABLE;
-    obj->Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
-    obj->Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    if (flags & DMA_FLAG_2BYTE)
+    {
+        obj->Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+        obj->Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+    }
+    else if (flags & DMA_FLAG_4BYTE)
+    {
+        obj->Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+        obj->Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
+    }
+    else
+    {
+        obj->Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+        obj->Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    }
     obj->Init.Mode = DMA_NORMAL;
-    obj->Init.Priority =  rxdx == DMA_RX ? DMA_PRIORITY_HIGH : DMA_PRIORITY_LOW;
-
+    obj->Init.Priority = rxdx == DMA_RX ? DMA_PRIORITY_HIGH : DMA_PRIORITY_LOW;
 
     if (map->dma == 1)
         __HAL_RCC_DMA1_CLK_ENABLE();
@@ -150,7 +191,8 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj)
     int res = HAL_DMA_Init(obj);
     CODAL_ASSERT(res == HAL_OK);
 
-    LOG("DMA init %p irq=%d ch=%d str=%d", obj->Instance, streams[id].irqn, map->channel, map->stream);
+    LOG("DMA init %p irq=%d ch=%d str=%d", obj->Instance, streams[id].irqn, map->channel,
+        map->stream);
 
     NVIC_EnableIRQ(streams[id].irqn);
 

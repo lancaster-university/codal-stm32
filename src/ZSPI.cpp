@@ -67,7 +67,7 @@ static ZSPI *instances[4];
 
 #define ZERO(f) memset(&f, 0, sizeof(f))
 
-uint32_t setup_pin(Pin *p, uint32_t prev, const PinMap *map)
+uint32_t codal_setup_pin(Pin *p, uint32_t prev, const PinMap *map)
 {
     if (!p)
         return 0;
@@ -207,9 +207,9 @@ void ZSPI::init()
 
     if (!spi.Instance)
     {
-        uint32_t instance = setup_pin(sclk, 0, PinMap_SPI_SCLK);
-        instance = setup_pin(miso, 0, PinMap_SPI_MISO);
-        instance = setup_pin(mosi, 0, PinMap_SPI_MOSI);
+        uint32_t instance = codal_setup_pin(sclk, 0, PinMap_SPI_SCLK);
+        instance = codal_setup_pin(miso, 0, PinMap_SPI_MISO);
+        instance = codal_setup_pin(mosi, 0, PinMap_SPI_MOSI);
 
         spi.Instance = (SPI_TypeDef *)instance;
     }
@@ -227,13 +227,13 @@ void ZSPI::init()
 
     if (mosi && !hdma_tx.Instance)
     {
-        dma_init((uint32_t)spi.Instance, DMA_TX, &hdma_tx);
+        dma_init((uint32_t)spi.Instance, DMA_TX, &hdma_tx, 0);
         __HAL_LINKDMA(&spi, hdmatx, hdma_tx);
     }
 
     if (miso && !hdma_rx.Instance)
     {
-        dma_init((uint32_t)spi.Instance, DMA_RX, &hdma_rx);
+        dma_init((uint32_t)spi.Instance, DMA_RX, &hdma_rx, 0);
         __HAL_LINKDMA(&spi, hdmarx, hdma_rx);
     }
 

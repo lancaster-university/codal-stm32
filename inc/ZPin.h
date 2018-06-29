@@ -54,7 +54,6 @@ protected:
         Button *btn;
     };
 
-    void config(int status);
     int setPWM(uint32_t value, uint32_t period);
 
     /**

@@ -120,25 +120,27 @@ void ZPin::disconnect()
             delete this->btn;
         this->btn = NULL;
     }
+
+    status = 0;
 }
 
-void ZPin::config(int status)
-{
-    disconnect();
+// void ZPin::config(int status)
+// {
+//     disconnect();
 
-    int mode = STM_PIN_INPUT;
-    int pull = GPIO_NOPULL;
+//     int mode = STM_PIN_INPUT;
+//     int pull = GPIO_NOPULL;
 
-    if (status & IO_STATUS_DIGITAL_OUT)
-        mode = STM_PIN_OUTPUT;
-    else if (this->status & IO_STATUS_ANALOG_IN)
-        mode = STM_PIN_ANALOG;
+//     if (status & IO_STATUS_DIGITAL_OUT)
+//         mode = STM_PIN_OUTPUT;
+//     else if (this->status & IO_STATUS_ANALOG_IN)
+//         mode = STM_PIN_ANALOG;
 
-    if (status & IO_STATUS_CAN_READ)
-        pull = map(this->pullMode);
+//     if (status & IO_STATUS_CAN_READ)
+//         pull = map(this->pullMode);
 
-    pin_function(name, STM_PIN_DATA(mode, pull, 0));
-}
+//     pin_function(name, STM_PIN_DATA(mode, pull, 0));
+// }
 
 /**
  * Configures this IO pin as a digital output (if necessary) and sets the pin to 'value'.
@@ -162,7 +164,9 @@ int ZPin::setDigitalValue(int value)
     // Move into a Digital input state if necessary.
     if (!(status & IO_STATUS_DIGITAL_OUT))
     {
-        config(IO_STATUS_DIGITAL_OUT);
+        disconnect();
+        pin_function(name, STM_PIN_DATA(STM_PIN_OUTPUT, GPIO_NOPULL, 0));
+        status |= IO_STATUS_DIGITAL_OUT;
     }
 
     HAL_GPIO_WritePin(GPIO_PORT(), GPIO_PIN(), (GPIO_PinState)value);
@@ -185,9 +189,11 @@ int ZPin::setDigitalValue(int value)
 int ZPin::getDigitalValue()
 {
     // Move into a Digital input state if necessary.
-    if (!(status & IO_STATUS_CAN_READ))
+    if (!(status & (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)))
     {
-        config(IO_STATUS_DIGITAL_IN);
+        disconnect();
+        pin_function(name, STM_PIN_DATA(STM_PIN_INPUT, map(this->pullMode), 0));
+        status |= IO_STATUS_DIGITAL_IN;
     }
 
     return HAL_GPIO_ReadPin(GPIO_PORT(), GPIO_PIN());
@@ -218,7 +224,8 @@ int ZPin::obtainAnalogChannel()
     // Move into an analogue output state if necessary
     if (!(status & IO_STATUS_ANALOG_OUT))
     {
-        this->config(0);
+        disconnect();
+        pin_function(name, STM_PIN_DATA(STM_PIN_OUTPUT, map(this->pullMode), 0));
         auto cfg = this->pwmCfg = new pwmout_t;
         pwmout_init(cfg, name);
         status = IO_STATUS_ANALOG_OUT;
@@ -401,7 +408,7 @@ int ZPin::isTouched()
     // Move into a touch input state if necessary.
     if (!(status & IO_STATUS_TOUCH_IN))
     {
-        config(0);
+        disconnect();
         this->btn = new Button(*this, id);
         status |= IO_STATUS_TOUCH_IN;
     }
@@ -497,8 +504,8 @@ int ZPin::setPull(PullMode pull)
 {
     pullMode = pull;
 
-    if (status & IO_STATUS_CAN_READ)
-        config(status);
+    if (!(status & IO_STATUS_DIGITAL_IN))
+        getDigitalValue();
 
     return DEVICE_NOT_SUPPORTED;
 }
@@ -583,7 +590,8 @@ int ZPin::enableRiseFallEvents(int eventType)
     // if we are in neither of the two modes, configure pin as a TimedInterruptIn.
     if (!(status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)))
     {
-        config(IO_STATUS_DIGITAL_IN);
+        if (!(status & IO_STATUS_DIGITAL_IN))
+            getDigitalValue();
 
         enable_irqs();
 
@@ -630,7 +638,10 @@ int ZPin::enableRiseFallEvents(int eventType)
 int ZPin::disableEvents()
 {
     if (status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_TOUCH_IN))
-        config(0);
+    {
+        disconnect();
+        getDigitalValue();
+    }
 
     return DEVICE_OK;
 }

@@ -182,8 +182,8 @@ int ZSingleWireSerial::configureTx(int enable)
     if (enable && !(status & TX_CONFIGURED))
     {
         uint8_t pin = (uint8_t)p.name;
-        pin_function(pin, pinmap_function(pin, PinMap_UART_TX));
         pin_mode(pin, PullNone);
+        pin_function(pin, pinmap_function(pin, PinMap_UART_TX));
         uart.Init.Mode = UART_MODE_TX;
         HAL_HalfDuplex_Init(&uart);
         status |= TX_CONFIGURED;

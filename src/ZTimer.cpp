@@ -45,7 +45,7 @@ void ZTimer::init()
     if (HAL_TIM_OC_Init(&TimHandle) != HAL_OK)
         CODAL_ASSERT(0);
 
-    NVIC_SetPriority(TIM5_IRQn,0);
+    NVIC_SetPriority(TIM5_IRQn, 0);
     NVIC_EnableIRQ(TIM5_IRQn);
     HAL_TIM_OC_Start(&TimHandle, TIM_CHANNEL_1);
 
@@ -54,12 +54,17 @@ void ZTimer::init()
 
 void ZTimer::triggerIn(CODAL_TIMESTAMP t)
 {
-    if (t < 100)
-        t = 100;
-    this->syncRequest();
+    if (t < 20)
+        t = 20;
+
+    this->syncRequest(); // is this needed?
+
+    target_disable_irq();
     __HAL_TIM_DISABLE_IT(&TimHandle, TIM_IT_CC1);
-    __HAL_TIM_SET_COMPARE(&TimHandle, TIM_CHANNEL_1, (uint32_t)(this->prev + t));
+    __HAL_TIM_SET_COMPARE(&TimHandle, TIM_CHANNEL_1,
+                          (uint32_t)(__HAL_TIM_GET_COUNTER(&TimHandle) + t));
     __HAL_TIM_ENABLE_IT(&TimHandle, TIM_IT_CC1);
+    target_enable_irq();
 }
 extern "C" uint32_t uwTick;
 void ZTimer::syncRequest()

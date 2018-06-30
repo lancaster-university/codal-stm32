@@ -502,12 +502,16 @@ int ZPin::getAnalogPeriod()
  */
 int ZPin::setPull(PullMode pull)
 {
+    if (pullMode == pull)
+        return DEVICE_OK;
+
     pullMode = pull;
 
-    if (!(status & IO_STATUS_DIGITAL_IN))
-        getDigitalValue();
+    // have to disconnect to flush the change to the hardware
+    disconnect();
+    getDigitalValue();
 
-    return DEVICE_NOT_SUPPORTED;
+    return DEVICE_OK;
 }
 
 /**

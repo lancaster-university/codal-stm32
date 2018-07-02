@@ -70,16 +70,16 @@ externally.
 ## Header structure
 
 ```
-struct PktSerialHeader {
-  u16 crc16;
-  u8 sourceAddr;
-  u8 size;
-  u8 data[16];
-};
-```
+struct PktSerialPkt {
+    public:
+    uint16_t crc;
+    uint8_t size;
+    uint8_t device_class;
+    uint8_t device_id:4,flags:4;
 
-The `size` field specifies the total size of the packet payload.
-If `size > 16` then data over the 16 initial bytes is sent after the break.
+    uint8_t data[25];
+}
+```
 
 ## Address assignment
 

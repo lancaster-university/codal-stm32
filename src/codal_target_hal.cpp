@@ -1,6 +1,7 @@
 #include "stm32.h"
 #include "codal_target_hal.h"
 #include "CodalDmesg.h"
+#include "CodalCompat.h"
 
 void target_enable_irq()
 {
@@ -20,6 +21,22 @@ void target_wait_for_event()
 void target_wait(uint32_t milliseconds)
 {
     HAL_Delay(milliseconds);
+}
+
+extern void wait_us(uint32_t);
+void target_wait_us(unsigned long us)
+{
+    wait_us(us);
+}
+
+int target_seed_random(uint32_t rand)
+{
+    return codal::seed_random(rand);
+}
+
+int target_random(int max)
+{
+    return codal::random(max);
 }
 
 void target_reset()

@@ -161,6 +161,11 @@ int ZSingleWireSerial::setBaud(uint32_t baud)
     return DEVICE_OK;
 }
 
+uint32_t ZSingleWireSerial::getBaud()
+{
+    return uart.Init.BaudRate;
+}
+
 int ZSingleWireSerial::putc(char c)
 {
     return send((uint8_t*)&c, 1);

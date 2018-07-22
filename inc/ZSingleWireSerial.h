@@ -49,6 +49,7 @@ namespace codal
         virtual int abortDMA();
 
         virtual int setBaud(uint32_t baud);
+        virtual uint32_t getBaud();
 
         virtual int setMode(SingleWireMode sw);
 

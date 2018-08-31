@@ -5,7 +5,7 @@
 #include "CodalComponent.h"
 #include "CodalConfig.h"
 #include "SingleWireSerial.h"
-#include "PktSerial.h"
+#include "JACDAC.h"
 #include "pinmap.h"
 #include "MemberFunctionCallback.h"
 
@@ -32,7 +32,7 @@ namespace codal
 
         static void _complete(uint32_t instance, uint32_t mode);
 
-        PktSerialPkt* currentBuffer;
+        JDPkt* currentBuffer;
         uint32_t currentBufferIndex;
 
         // only works with a TX uart pin on STM.

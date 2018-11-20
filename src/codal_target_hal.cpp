@@ -52,7 +52,7 @@ int target_random(int max)
 uint32_t target_get_serial()
 {
     // uuid[1] is the wafer number plus the lot number, need to check the uniqueness of this...
-    return (uint32_t)STM32_UUID[1];
+    return STM32_UUID[0]^(STM32_UUID[1]*17)^(STM32_UUID[2]*13);
 }
 
 void target_reset()

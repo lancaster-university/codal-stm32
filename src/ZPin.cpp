@@ -520,6 +520,7 @@ int ZPin::setPull(PullMode pull)
  *
  * @param eventValue the event value to distribute onto the message bus.
  */
+#include "CodalDmesg.h"
 void ZPin::pulseWidthEvent(int eventValue)
 {
     Event evt(id, eventValue, CREATE_ONLY);
@@ -535,10 +536,8 @@ void ZPin::pulseWidthEvent(int eventValue)
     this->evCfg->prevPulse = now;
 }
 
-void ZPin::eventCallback()
+void ZPin::eventCallback(int isRise)
 {
-    bool isRise = HAL_GPIO_ReadPin(GPIO_PORT(), GPIO_PIN());
-
     if (status & IO_STATUS_EVENT_PULSE_ON_EDGE)
         pulseWidthEvent(isRise ? DEVICE_PIN_EVT_PULSE_LO : DEVICE_PIN_EVT_PULSE_HI);
 
@@ -553,8 +552,24 @@ static void irq_handler()
 
     for (int i = 0; i < 16; ++i)
     {
-        if ((pr & (1 << i)) && eventPin[i])
-            eventPin[i]->eventCallback();
+        if (eventPin[i] && (pr & (1 << i)))
+        {
+            uint32_t pinPos = (1 << ((uint32_t)eventPin[i]->name & 0xf));
+            int riseEnabled = EXTI->RTSR & pinPos;
+
+            if (riseEnabled)
+            {
+                EXTI->RTSR &= ~pinPos;
+                EXTI->FTSR |= pinPos;
+            }
+            else
+            {
+                EXTI->FTSR &= ~pinPos;
+                EXTI->RTSR |= pinPos;
+            }
+
+            eventPin[i]->eventCallback(riseEnabled);
+        }
     }
 }
 
@@ -594,8 +609,7 @@ int ZPin::enableRiseFallEvents(int eventType)
     // if we are in neither of the two modes, configure pin as a TimedInterruptIn.
     if (!(status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)))
     {
-        if (!(status & IO_STATUS_DIGITAL_IN))
-            getDigitalValue();
+        int pinState = getDigitalValue();
 
         enable_irqs();
 
@@ -612,8 +626,14 @@ int ZPin::enableRiseFallEvents(int eventType)
 
         EXTI->EMR &= ~GPIO_PIN();
         EXTI->IMR |= GPIO_PIN();
-        EXTI->RTSR |= GPIO_PIN();
-        EXTI->FTSR |= GPIO_PIN();
+
+        // enable the external interrupt based on the current GPIO state.
+        if (pinState)
+            // hi, interrupt when lo
+            EXTI->FTSR |= GPIO_PIN();
+        else
+            // lo, interrupt when hi.
+            EXTI->RTSR |= GPIO_PIN();
 
         if (this->evCfg == NULL)
             this->evCfg = new ZEventConfig;

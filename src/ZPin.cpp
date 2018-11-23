@@ -45,6 +45,9 @@ DEALINGS IN THE SOFTWARE.
 #define GPIO_PORT() ((GPIO_TypeDef *)(GPIOA_BASE + 0x400 * ((int)name >> 4)))
 #define GPIO_PIN() (1 << ((uint32_t)name & 0xf))
 
+#define GPIO_PORT_NAME(name) ((GPIO_TypeDef *)(GPIOA_BASE + 0x400 * ((int)name >> 4)))
+#define GPIO_PIN_NAME(name) (1 << ((uint32_t)name & 0xf))
+
 namespace codal
 {
 
@@ -554,8 +557,13 @@ static void irq_handler()
     {
         if (eventPin[i] && (pr & (1 << i)))
         {
-            uint32_t pinPos = (1 << ((uint32_t)eventPin[i]->name & 0xf));
-            int riseEnabled = EXTI->RTSR & pinPos;
+            uint32_t pinPos = GPIO_PIN_NAME(eventPin[i]->name);
+            bool bothEnabled = (EXTI->RTSR & pinPos && EXTI->FTSR & pinPos);
+            bool riseEnabled = (EXTI->RTSR & pinPos);
+
+            // if both are enabled, detect the edge.
+            if (bothEnabled)
+                riseEnabled = HAL_GPIO_ReadPin(GPIO_PORT_NAME(eventPin[i]->name), pinPos);
 
             if (riseEnabled)
             {
@@ -609,8 +617,6 @@ int ZPin::enableRiseFallEvents(int eventType)
     // if we are in neither of the two modes, configure pin as a TimedInterruptIn.
     if (!(status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)))
     {
-        int pinState = getDigitalValue();
-
         enable_irqs();
 
         int pin = (int)name & PINMASK;
@@ -627,13 +633,9 @@ int ZPin::enableRiseFallEvents(int eventType)
         EXTI->EMR &= ~GPIO_PIN();
         EXTI->IMR |= GPIO_PIN();
 
-        // enable the external interrupt based on the current GPIO state.
-        if (pinState)
-            // hi, interrupt when lo
-            EXTI->FTSR |= GPIO_PIN();
-        else
-            // lo, interrupt when hi.
-            EXTI->RTSR |= GPIO_PIN();
+        // enable both interrupts to start
+        EXTI->FTSR |= GPIO_PIN();
+        EXTI->RTSR |= GPIO_PIN();
 
         if (this->evCfg == NULL)
             this->evCfg = new ZEventConfig;

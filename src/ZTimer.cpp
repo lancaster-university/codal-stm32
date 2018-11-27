@@ -41,9 +41,11 @@ extern "C" void TIM5_IRQHandler()
 
 void ZTimer::init()
 {
+    __HAL_RCC_TIM5_CLK_ENABLE();
+
     TimHandle.Instance = TIM5;
 
-    TimHandle.Init.Period = 0xFFFFFFFF;
+    TimHandle.Init.Period = (CMP_T)0xFFFFFFFF;
     TimHandle.Init.Prescaler = (uint32_t)((SystemCoreClock / 1000000) - 1);
     TimHandle.Init.ClockDivision = 0;
     TimHandle.Init.CounterMode = TIM_COUNTERMODE_UP;

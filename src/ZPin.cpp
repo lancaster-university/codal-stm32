@@ -189,7 +189,8 @@ int ZPin::setDigitalValue(int value)
 int ZPin::getDigitalValue()
 {
     // Move into a Digital input state if necessary.
-    if (!(status & (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)))
+    if (!(status &
+          (IO_STATUS_DIGITAL_IN | IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE)))
     {
         disconnect();
         pin_function(name, STM_PIN_DATA(STM_PIN_INPUT, map(this->pullMode), 0));
@@ -603,7 +604,11 @@ int ZPin::enableRiseFallEvents(int eventType)
 
         eventPin[pin] = this;
 
+#ifdef STM32F1
+        volatile uint32_t *ptr = &AFIO->EXTICR[pin >> 2];
+#else
         volatile uint32_t *ptr = &SYSCFG->EXTICR[pin >> 2];
+#endif
         int shift = (pin & 3) * 4;
         int port = (int)name >> 4;
 

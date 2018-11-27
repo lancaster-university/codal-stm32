@@ -57,9 +57,11 @@ uint32_t target_get_serial()
 
 void target_reset()
 {
+#ifdef STM32F4
     PWR->CR |= PWR_CR_DBP;
     RCC->BDCR |= RCC_BDCR_RTCEN;
     RTC->BKP0R = 0x24a22d12; // skip bootloader
+#endif
     NVIC_SystemReset();
 }
 

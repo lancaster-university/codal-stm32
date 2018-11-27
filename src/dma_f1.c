@@ -37,27 +37,6 @@ const DmaStream streams[] = //
      {DMA2_Channel5, DMA2_Channel4_5_IRQn},
      {0, 0}};
 
-const uint32_t channels[] = {
-    0,
-    DMA1_Channel1_BASE,
-    DMA1_Channel2_BASE,
-    DMA1_Channel3_BASE,
-    DMA1_Channel4_BASE,
-    DMA1_Channel5_BASE,
-    DMA1_Channel6_BASE,
-    DMA1_Channel7_BASE,
-    0,
-    0,
-    0,
-    DMA2_Channel1_BASE,
-    DMA2_Channel2_BASE,
-    DMA2_Channel3_BASE,
-    DMA2_Channel4_BASE,
-    DMA2_Channel5_BASE,
-    0,
-    0,
-};
-
 MBED_WEAK const DmaMap TheDmaMap[] = //
     {{ADC1_BASE, DMA_RX, 1},
      {ADC3_BASE, DMA_RX, 15},
@@ -119,7 +98,7 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
 {
     memset(obj, 0, sizeof(*obj));
 
-    int id;
+    int id = 0;
     const DmaMap *map;
 
     for (map = TheDmaMap; map->peripheral; map++)
@@ -139,7 +118,6 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
 
     obj->Instance = streams[id].instance;
 
-    obj->Init.Channel = channels[map->channel];
     obj->Init.Direction = rxdx == DMA_RX ? DMA_PERIPH_TO_MEMORY : DMA_MEMORY_TO_PERIPH;
     obj->Init.PeriphInc = DMA_PINC_DISABLE;
     obj->Init.MemInc = DMA_MINC_ENABLE;
@@ -161,9 +139,9 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
     obj->Init.Mode = DMA_NORMAL;
     obj->Init.Priority = rxdx == DMA_RX ? DMA_PRIORITY_HIGH : DMA_PRIORITY_LOW;
 
-    if (map->dma == 1)
+    if (map->channel <= 10)
         __HAL_RCC_DMA1_CLK_ENABLE();
-    else if (map->dma == 2)
+    else
         __HAL_RCC_DMA2_CLK_ENABLE();
 
     int res = HAL_DMA_Init(obj);

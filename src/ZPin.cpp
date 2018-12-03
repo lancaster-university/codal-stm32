@@ -571,6 +571,14 @@ DEF(EXTI15_10_IRQHandler)
 
 static void enable_irqs()
 {
+    NVIC_SetPriority(EXTI0_IRQn,0);
+    NVIC_SetPriority(EXTI1_IRQn,0);
+    NVIC_SetPriority(EXTI2_IRQn,0);
+    NVIC_SetPriority(EXTI3_IRQn,0);
+    NVIC_SetPriority(EXTI4_IRQn,0);
+    NVIC_SetPriority(EXTI9_5_IRQn,0);
+    NVIC_SetPriority(EXTI15_10_IRQn,0);
+
     NVIC_EnableIRQ(EXTI0_IRQn);
     NVIC_EnableIRQ(EXTI1_IRQn);
     NVIC_EnableIRQ(EXTI2_IRQn);

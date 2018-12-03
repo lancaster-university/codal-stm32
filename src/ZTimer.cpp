@@ -45,7 +45,7 @@ void ZTimer::init()
     if (HAL_TIM_OC_Init(&TimHandle) != HAL_OK)
         CODAL_ASSERT(0);
 
-    NVIC_SetPriority(TIM5_IRQn, 0);
+    NVIC_SetPriority(TIM5_IRQn, 1);
     NVIC_EnableIRQ(TIM5_IRQn);
     HAL_TIM_OC_Start(&TimHandle, TIM_CHANNEL_1);
 
@@ -56,8 +56,6 @@ void ZTimer::triggerIn(CODAL_TIMESTAMP t)
 {
     if (t < 20)
         t = 20;
-
-    this->syncRequest(); // is this needed?
 
     target_disable_irq();
     __HAL_TIM_DISABLE_IT(&TimHandle, TIM_IT_CC1);

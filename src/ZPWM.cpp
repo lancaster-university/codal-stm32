@@ -202,6 +202,8 @@ void ZPWM::nextBuffer()
             bufCnt = 300 / repCount;
         buf0 = new uint32_t[bufCnt * repCount + 1];
         buf1 = new uint32_t[bufCnt * repCount + 1];
+        buf0[0] = 0;
+        buf1[0] = 0;
     }
 
     // do we have something to send?
@@ -252,7 +254,6 @@ void ZPWM::irq()
 void ZPWM::enable()
 {
     enabled = true;
-    //    PWM.ENABLE = 1;
 }
 
 /**

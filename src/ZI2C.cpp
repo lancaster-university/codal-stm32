@@ -28,7 +28,12 @@ DEALINGS IN THE SOFTWARE.
 #include "ErrorNo.h"
 #include "pinmap.h"
 #include "PeripheralPins.h"
+
+#ifdef STM32F1
+#include "stm32f1xx_ll_i2c.h"
+#else
 #include "stm32f4xx_ll_i2c.h"
+#endif
 
 namespace codal
 {

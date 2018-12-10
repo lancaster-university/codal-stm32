@@ -4,6 +4,8 @@
 #define USE_HAL_DRIVER 1
 #if defined(STM32F4)
 #include "stm32f4xx.h"
+#elif defined(STM32F1)
+#include "stm32f1xx.h"
 #else
 #error "TODO: add the rest"
 #endif
@@ -35,6 +37,7 @@
 #define PB_8 0x18
 #define PB_9 0x19
 #define PB_10 0x1A
+#define PB_11 0x1B
 #define PB_12 0x1C
 #define PB_13 0x1D
 #define PB_14 0x1E

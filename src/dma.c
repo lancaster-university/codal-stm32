@@ -1,11 +1,22 @@
 #include "dma.h"
 #include "CodalDmesg.h"
 
+#ifdef STM32F4
+
 #define NUM_STREAMS 8
 #define NUM_DMA 2
 
 //#define LOG DMESG
 #define LOG(...) ((void)0)
+
+typedef struct
+{
+    uint32_t peripheral; // SPI1_BASE etc
+    uint8_t rxdx;        // 1 rx, 2 tx
+    uint8_t dma;         // 1 or 2
+    uint8_t stream;
+    uint8_t channel;
+} DmaMap;
 
 typedef struct
 {
@@ -36,10 +47,6 @@ const uint32_t channels[] = {
     DMA_CHANNEL_0, DMA_CHANNEL_1, DMA_CHANNEL_2, DMA_CHANNEL_3,
     DMA_CHANNEL_4, DMA_CHANNEL_5, DMA_CHANNEL_6, DMA_CHANNEL_7,
 };
-
-#if !defined(STM32F4)
-#error "check the DMA mapping table below"
-#endif
 
 MBED_WEAK const DmaMap TheDmaMap[] = //
     {
@@ -198,3 +205,5 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
 
     return 0;
 }
+
+#endif

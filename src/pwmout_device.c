@@ -31,7 +31,7 @@
 #include "pwmout_api.h"
 #include "pwmout_device.h"
 
-#if !defined(STM32F4)
+#if !defined(STM32F4) && !defined(STM32F1)
 #error "Please make sure this list is correct for your MCU and modify the line above"
 #endif
 

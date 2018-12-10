@@ -5,6 +5,12 @@
 
 #include "CodalDmesg.h"
 
+#ifdef STM32F1
+#define CMP_T uint16_t
+#else
+#define CMP_T uint32_t
+#endif
+
 namespace codal
 {
 
@@ -35,9 +41,11 @@ extern "C" void TIM5_IRQHandler()
 
 void ZTimer::init()
 {
+    __HAL_RCC_TIM5_CLK_ENABLE();
+
     TimHandle.Instance = TIM5;
 
-    TimHandle.Init.Period = 0xFFFFFFFF;
+    TimHandle.Init.Period = (CMP_T)0xFFFFFFFF;
     TimHandle.Init.Prescaler = (uint32_t)((SystemCoreClock / 1000000) - 1);
     TimHandle.Init.ClockDivision = 0;
     TimHandle.Init.CounterMode = TIM_COUNTERMODE_UP;
@@ -60,7 +68,7 @@ void ZTimer::triggerIn(CODAL_TIMESTAMP t)
     target_disable_irq();
     __HAL_TIM_DISABLE_IT(&TimHandle, TIM_IT_CC1);
     __HAL_TIM_SET_COMPARE(&TimHandle, TIM_CHANNEL_1,
-                          (uint32_t)(__HAL_TIM_GET_COUNTER(&TimHandle) + t));
+                          (CMP_T)(__HAL_TIM_GET_COUNTER(&TimHandle) + t));
     __HAL_TIM_ENABLE_IT(&TimHandle, TIM_IT_CC1);
     target_enable_irq();
 }
@@ -68,10 +76,10 @@ extern "C" uint32_t uwTick;
 void ZTimer::syncRequest()
 {
     target_disable_irq();
-    uint32_t curr = __HAL_TIM_GET_COUNTER(&TimHandle);
-    uint32_t delta = curr - this->prev;
+    CMP_T curr = __HAL_TIM_GET_COUNTER(&TimHandle);
+    CMP_T delta = curr - this->prev;
 
-    // update the hal...
+    // update the hal... - this won't work if this is called more than once per millisecond
     uwTick += delta / 1000;
 
     this->prev = curr;

@@ -162,7 +162,7 @@ extern "C"
 
     void HAL_PCD_SetupStageCallback(PCD_HandleTypeDef *hpcd)
     {
-        LOG("USB setup");
+        //LOG("USB setup");
         USBSetup stp;
         memcpy(&stp, &hpcd->Setup, sizeof(stp));
         // USB_EP0_OutStart(pcd.Instance, pcd.Init.dma_enable, (uint8_t *)pcd.Setup);
@@ -196,7 +196,6 @@ void usb_set_address(uint16_t wValue) {}
 
 void usb_set_address_pre(uint16_t wValue)
 {
-
     DBG("ctl=%p", USBx_OUTEP(0)->DOEPCTL);
 
     LOG("set address %d", wValue);
@@ -350,7 +349,7 @@ static void writeEP(uint8_t *data, uint8_t ep, int len)
 
     USBx_DEVICE->DIEPEMPMSK &= ~0x1U << ep;
 
-#if 0
+#if 1
     while (!(USB_ReadDevInEPInterrupt(pcd.Instance, ep) & USB_OTG_DIEPINT_XFRC))
         ;
     CLEAR_IN_EP_INTR(ep, USB_OTG_DIEPINT_XFRC);
@@ -366,6 +365,8 @@ static void writeEP(uint8_t *data, uint8_t ep, int len)
 
 int UsbEndpointIn::write(const void *src, int len)
 {
+    DBG("outer write %p/%d", src, len);
+
     // this happens when someone tries to write before USB is initialized
     usb_assert(this != NULL);
 
@@ -390,8 +391,8 @@ int UsbEndpointIn::write(const void *src, int len)
         int n = len;
         if (n > USB_MAX_PKT_SIZE)
             n = USB_MAX_PKT_SIZE;
-        memcpy(buf, src, len);
-        writeEP(buf, ep, len);
+        memcpy(buf, src, n);
+        writeEP(buf, ep, n);
         len -= n;
         src = (const uint8_t *)src + n;
         if (!len)

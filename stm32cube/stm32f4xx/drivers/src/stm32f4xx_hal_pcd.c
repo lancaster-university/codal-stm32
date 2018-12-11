@@ -316,7 +316,7 @@ HAL_StatusTypeDef HAL_PCD_Stop(PCD_HandleTypeDef *hpcd)
   return HAL_OK;
 }
 
-#include "CodalDmesg.h"
+// #include "CodalDmesg.h"
 
 /**
   * @brief  Handles PCD interrupt request.
@@ -331,7 +331,7 @@ void HAL_PCD_IRQHandler(PCD_HandleTypeDef *hpcd)
   USB_OTG_EPTypeDef *ep;
   uint32_t hclk = 180000000U;
 
-  DMESG("PCD IRQ: in=%d out=%d", __HAL_PCD_GET_FLAG(hpcd, USB_OTG_GINTSTS_IEPINT), __HAL_PCD_GET_FLAG(hpcd, USB_OTG_GINTSTS_OEPINT));
+  // DMESG("PCD IRQ: in=%d out=%d", __HAL_PCD_GET_FLAG(hpcd, USB_OTG_GINTSTS_IEPINT), __HAL_PCD_GET_FLAG(hpcd, USB_OTG_GINTSTS_OEPINT));
   
   /* ensure that we are in device mode */
   if (USB_GetMode(hpcd->Instance) == USB_OTG_MODE_DEVICE)

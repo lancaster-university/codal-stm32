@@ -324,7 +324,9 @@ int UsbEndpointOut::read(void *dst, int maxlen)
         if (packetSize > maxlen)
             packetSize = maxlen;
         memcpy(dst, buf, packetSize);
-        startRead();
+        // only re-start read on non-ctrl
+        if (ep & 0x1f)
+            startRead();
     }
 
     return packetSize;

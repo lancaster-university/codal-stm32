@@ -31,7 +31,8 @@ DEALINGS IN THE SOFTWARE.
 #include "Timer.h"
 
 #define LOG DMESG
-#define DBG DMESG
+#define DBG(...) ((void)0)
+//#define DBG DMESG
 
 #if defined(STM32F1) || defined(STM32F2)
 #define NUM_EP 3

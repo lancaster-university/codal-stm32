@@ -352,11 +352,9 @@ static void writeEP(uint8_t *data, uint8_t ep, int len)
 
     USBx_DEVICE->DIEPEMPMSK &= ~0x1U << ep;
 
-#if 1
     while (!(USB_ReadDevInEPInterrupt(pcd.Instance, ep) & USB_OTG_DIEPINT_XFRC))
         ;
     CLEAR_IN_EP_INTR(ep, USB_OTG_DIEPINT_XFRC);
-#endif
 
     DBG("%d write done, ctl=%p", (int)codal::system_timer_current_time_us(),
         USBx_OUTEP(0)->DOEPCTL);

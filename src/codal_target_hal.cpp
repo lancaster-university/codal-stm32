@@ -2,6 +2,7 @@
 #include "codal_target_hal.h"
 #include "CodalDmesg.h"
 #include "CodalCompat.h"
+#include "Timer.h"
 
 static int8_t irq_disabled;
 void target_enable_irq()
@@ -30,10 +31,9 @@ void target_wait(uint32_t milliseconds)
     HAL_Delay(milliseconds);
 }
 
-extern void wait_us(uint32_t);
 void target_wait_us(unsigned long us)
 {
-    wait_us(us);
+    codal::system_timer_wait_us(us);
 }
 
 int target_seed_random(uint32_t rand)

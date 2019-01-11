@@ -32,7 +32,7 @@ namespace codal
 
         static void _complete(uint32_t instance, uint32_t mode);
 
-        JDPkt* currentBuffer;
+        JDPacket* currentBuffer;
         uint32_t currentBufferIndex;
 
         // only works with a TX uart pin on STM.

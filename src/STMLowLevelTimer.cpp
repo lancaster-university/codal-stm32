@@ -232,9 +232,7 @@ uint32_t STMLowLevelTimer::captureCounter()
 {
     uint32_t elapsed = 0;
 
-    disableIRQ();
     elapsed = __HAL_TIM_GET_COUNTER(&TimHandle);
-    enableIRQ();
     return elapsed;
 }
 

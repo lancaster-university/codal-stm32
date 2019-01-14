@@ -71,6 +71,7 @@ typedef enum {
 // Enable GPIO clock and return GPIO base address
 GPIO_TypeDef *Set_GPIO_Clock(uint32_t port_idx) {
     uint32_t gpio_add = 0;
+    __HAL_RCC_SYSCFG_CLK_ENABLE();
     switch (port_idx) {
         case PortA:
             gpio_add = GPIOA_BASE;

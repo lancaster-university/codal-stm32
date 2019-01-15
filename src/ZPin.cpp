@@ -570,8 +570,13 @@ DEF(EXTI4_IRQHandler)
 DEF(EXTI9_5_IRQHandler)
 DEF(EXTI15_10_IRQHandler)
 
+static bool irqs_enabled = false;
 static void enable_irqs()
 {
+    if(irqs_enabled)
+        return;
+
+    irqs_enabled = true;
     NVIC_SetPriority(EXTI0_IRQn,0);
     NVIC_SetPriority(EXTI1_IRQn,0);
     NVIC_SetPriority(EXTI2_IRQn,0);

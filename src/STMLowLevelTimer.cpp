@@ -78,19 +78,31 @@ STMLowLevelTimer::STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn) : LowLevelT
     TimHandle.Init.CounterMode = TIM_COUNTERMODE_UP;
     HAL_TIM_OC_Init(&TimHandle);
 
-    // all timers run in at least 16 bit mode, so lets use it as a default.
-    setBitMode(BitMode16);
-
     uint8_t instance_index = 0;
 
     if (timer == TIM2)
+    {
         instance_index = 1;
-    if (timer == TIM3)
+        setBitMode(BitMode32);
+    }
+    else if (timer == TIM3)
+    {
         instance_index = 2;
-    if (timer == TIM4)
+        setBitMode(BitMode16);
+    }
+    else if (timer == TIM4)
+    {
         instance_index = 3;
-    if (timer == TIM5)
+        setBitMode(BitMode16);
+    }
+    else if (timer == TIM5)
+    {
         instance_index = 4;
+        setBitMode(BitMode32);
+    }
+    else
+        // other timers aren't supported at present.
+        target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     instances[instance_index] = this;
 }

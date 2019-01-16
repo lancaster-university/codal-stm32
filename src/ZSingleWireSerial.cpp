@@ -308,6 +308,22 @@ int ZSingleWireSerial::abortDMA()
     return DEVICE_OK;
 }
 
+int ZSingleWireSerial::getBytesReceived()
+{
+    if (!(status & RX_CONFIGURED))
+        return DEVICE_INVALID_PARAMETER;
+
+    return hdma_rx.Instance->NDTR;
+}
+
+int ZSingleWireSerial::getBytesTransmitted()
+{
+    if (!(status & TX_CONFIGURED))
+        return DEVICE_INVALID_PARAMETER;
+
+    return hdma_tx.Instance->NDTR;
+}
+
 int ZSingleWireSerial::sendBreak()
 {
     if (!(status & TX_CONFIGURED))

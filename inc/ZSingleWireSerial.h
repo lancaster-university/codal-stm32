@@ -48,6 +48,9 @@ namespace codal
         virtual int receiveDMA(uint8_t* data, int len);
         virtual int abortDMA();
 
+        int getBytesReceived();
+        int getBytesTransmitted();
+
         virtual int setBaud(uint32_t baud);
         virtual uint32_t getBaud();
 

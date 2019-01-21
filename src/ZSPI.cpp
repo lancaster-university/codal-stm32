@@ -130,7 +130,7 @@ void ZSPI::complete()
     {
         PVoidCallback done = doneHandler;
         doneHandler = NULL;
-        //create_fiber(done, doneHandlerArg);
+        // create_fiber(done, doneHandlerArg);
         done(doneHandlerArg);
     }
     else
@@ -267,7 +267,8 @@ ZSPI::ZSPI(Pin &mosi, Pin &miso, Pin &sclk) : codal::SPI()
 
     for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
     {
-        if (instances[i] == NULL) {
+        if (instances[i] == NULL)
+        {
             instances[i] = this;
             break;
         }
@@ -302,7 +303,7 @@ int ZSPI::write(int data)
 }
 
 int ZSPI::transfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuffer, uint32_t rxSize)
-{    
+{
     fiber_wake_on_event(DEVICE_ID_NOTIFY, transferCompleteEventCode);
     auto res = startTransfer(txBuffer, txSize, rxBuffer, rxSize, NULL, NULL);
     LOG("SPI ->");
@@ -323,6 +324,11 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
     this->doneHandler = doneHandler;
     this->doneHandlerArg = arg;
 
+    // disable IRQ or else risk a race in HAL, between starting DMA request
+    // and getting the DMA-done IRQ
+    if (doneHandler)
+        target_disable_irq();
+
     if (txSize && rxSize)
     {
         CODAL_ASSERT(txSize == rxSize); // we could support this if needed
@@ -338,8 +344,11 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
     }
     else
     {
-        return 0; // nothing to do
+        res = HAL_OK;
     }
+
+    if (doneHandler)
+        target_enable_irq();
 
     CODAL_ASSERT(res == HAL_OK);
 

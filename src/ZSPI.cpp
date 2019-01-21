@@ -74,7 +74,7 @@ uint32_t codal_setup_pin(Pin *p, uint32_t prev, const PinMap *map)
     auto pin = p->name;
     uint32_t tmp = pinmap_peripheral(pin, map);
     pin_function(pin, pinmap_function(pin, map));
-    pin_mode(pin, PullNone);
+    // pin_mode(pin, PullNone);
     CODAL_ASSERT(!prev || prev == tmp);
     return tmp;
 }

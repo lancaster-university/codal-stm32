@@ -75,6 +75,8 @@ void ZI2C::init()
 
 ZI2C::ZI2C(codal::Pin &sda, codal::Pin &scl) : codal::I2C(sda, scl), sda(sda), scl(scl)
 {
+    memset(&i2c, 0, sizeof(i2c));
+
     i2c.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
     i2c.Init.ClockSpeed = 100000;
     i2c.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -94,6 +96,8 @@ int ZI2C::setFrequency(uint32_t frequency)
     return DEVICE_OK;
 }
 
+#define I2C_TIMEOUT 1000
+
 int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
 {
     if (data == NULL || len <= 0)
@@ -103,7 +107,7 @@ int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
 
     init();
     // timeout in ms - we use infinity
-    auto res = HAL_I2C_Master_Transmit(&i2c, address, data, len, HAL_MAX_DELAY);
+    auto res = HAL_I2C_Master_Transmit(&i2c, address, data, len, I2C_TIMEOUT);
 
     if (res == HAL_OK)
         return DEVICE_OK;
@@ -119,7 +123,7 @@ int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
     CODAL_ASSERT(!repeated);
 
     init();
-    auto res = HAL_I2C_Master_Receive(&i2c, address, data, len, HAL_MAX_DELAY);
+    auto res = HAL_I2C_Master_Receive(&i2c, address, data, len, I2C_TIMEOUT);
 
     if (res == HAL_OK)
         return DEVICE_OK;
@@ -132,7 +136,7 @@ int ZI2C::readRegister(uint16_t address, uint8_t reg, uint8_t *data, int length,
     CODAL_ASSERT(!repeated);
 
     init();
-    auto res = HAL_I2C_Mem_Read(&i2c, address, reg, I2C_MEMADD_SIZE_8BIT, data, length, HAL_MAX_DELAY);
+    auto res = HAL_I2C_Mem_Read(&i2c, address, reg, I2C_MEMADD_SIZE_8BIT, data, length, I2C_TIMEOUT);
 
     if (res == HAL_OK)
         return DEVICE_OK;

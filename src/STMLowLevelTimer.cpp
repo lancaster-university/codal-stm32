@@ -75,7 +75,6 @@ STMLowLevelTimer::STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn) : LowLevelT
     TimHandle.Init.Prescaler = (uint32_t)((SystemCoreClock / 1000000)-1);
     TimHandle.Init.ClockDivision = 0;
     TimHandle.Init.CounterMode = TIM_COUNTERMODE_UP;
-    HAL_TIM_OC_Init(&TimHandle);
 
     uint8_t instance_index = 0;
 
@@ -111,6 +110,8 @@ STMLowLevelTimer::STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn) : LowLevelT
     else
         // other timers aren't supported at present.
         target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
+
+    HAL_TIM_OC_Init(&TimHandle);
 
     instances[instance_index] = this;
 }

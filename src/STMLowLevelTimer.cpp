@@ -64,7 +64,6 @@ extern "C" void TIM5_IRQHandler()
 
 STMLowLevelTimer::STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn) : LowLevelTimer(4)
 {
-    __HAL_RCC_TIM5_CLK_ENABLE();
     this->timer_instance = timer;
     this->irqN = irqn;
     memset(&TimHandle, 0, sizeof(TIM_HandleTypeDef));
@@ -80,25 +79,34 @@ STMLowLevelTimer::STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn) : LowLevelT
 
     uint8_t instance_index = 0;
 
-    if (timer == TIM2)
+    if (timer == TIM1)
+    {
+        setBitMode(BitMode16);
+        __HAL_RCC_TIM1_CLK_ENABLE();
+    }
+    else if (timer == TIM2)
     {
         instance_index = 1;
         setBitMode(BitMode32);
+        __HAL_RCC_TIM2_CLK_ENABLE();
     }
     else if (timer == TIM3)
     {
         instance_index = 2;
         setBitMode(BitMode16);
+        __HAL_RCC_TIM3_CLK_ENABLE();
     }
     else if (timer == TIM4)
     {
         instance_index = 3;
         setBitMode(BitMode16);
+        __HAL_RCC_TIM4_CLK_ENABLE();
     }
     else if (timer == TIM5)
     {
         instance_index = 4;
         setBitMode(BitMode32);
+        __HAL_RCC_TIM5_CLK_ENABLE();
     }
     else
         // other timers aren't supported at present.

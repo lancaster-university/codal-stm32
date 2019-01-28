@@ -61,15 +61,15 @@ void ZSingleWireSerial::_complete(uint32_t instance, uint32_t mode)
             if (mode == SWS_EVT_ERROR)
             {
                 uint8_t err = HAL_UART_GetError(&instances[i]->uart);
-                codal_dmesg("ERROR %d", HAL_UART_GetError(&instances[i]->uart));
-                if (err == HAL_UART_ERROR_FE)
-                {
-                    // a uart error disable any previously configured DMA transfers, we will always get a framing error...
-                    // quietly restart...
-                    HAL_UART_Receive_DMA(&instances[i]->uart, instances[i]->buf, instances[i]->bufLen);
-                    return;
-                }
-                else
+                // codal_dmesg("ERROR %d", HAL_UART_GetError(&instances[i]->uart));
+                // if (err == HAL_UART_ERROR_FE)
+                // {
+                //     // a uart error disable any previously configured DMA transfers, we will always get a framing error...
+                //     // quietly restart...
+                //     HAL_UART_Receive_DMA(&instances[i]->uart, instances[i]->buf, instances[i]->bufLen);
+                //     return;
+                // }
+                // else
                     HAL_UART_Abort(&instances[i]->uart);
             }
 
@@ -209,8 +209,10 @@ int ZSingleWireSerial::configureRx(int enable)
         uint8_t pin = (uint8_t)p.name;
         pin_function(pin, pinmap_function(pin, PinMap_UART_TX));
         pin_mode(pin, PullNone);
+        // 5 us
         uart.Init.Mode = UART_MODE_RX;
         HAL_HalfDuplex_Init(&uart);
+        // additional 9 us
         status |= RX_CONFIGURED;
     }
     else if (status & RX_CONFIGURED)
@@ -294,6 +296,7 @@ int ZSingleWireSerial::receiveDMA(uint8_t* data, int len)
 
     int res = HAL_UART_Receive_DMA(&uart, data, len);
 
+    // DMESG("RES %d",res);
     CODAL_ASSERT(res == HAL_OK);
 
     return DEVICE_OK;

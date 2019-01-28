@@ -8,7 +8,8 @@ static int8_t irq_disabled;
 void target_enable_irq()
 {
     irq_disabled--;
-    if (irq_disabled <= 0) {
+    if (irq_disabled <= 0)
+    {
         irq_disabled = 0;
         __enable_irq();
     }
@@ -26,40 +27,24 @@ void target_wait_for_event()
     __WFE();
 }
 
-void target_wait(uint32_t milliseconds)
-{
-    HAL_Delay(milliseconds);
-}
-
-void target_wait_us(unsigned long us)
-{
-    codal::system_timer_wait_us(us);
-}
-
-int target_seed_random(uint32_t rand)
-{
-    return codal::seed_random(rand);
-}
-
-int target_random(int max)
-{
-    return codal::random(max);
-}
-
 /*
     The unique device identifier is ideally suited:
-        * for use as serial numbers (for example USB string serial numbers or other end applications)
-        * for use as security keys in order to increase the security of code in Flash memory while using and combining this unique ID with software cryptographic primitives and protocols before programming the internal Flash memory
+        * for use as serial numbers (for example USB string serial numbers or other end
+   applications)
+        * for use as security keys in order to increase the security of code in Flash memory while
+   using and combining this unique ID with software cryptographic primitives and protocols before
+   programming the internal Flash memory
         * to activate secure boot processes, etc.
     The 96-bit unique device identifier provides a reference number which is unique for any
     device and in any context. These bits can never be altered by the user.
-    The 96-bit unique device identifier can also be read in single bytes/half-words/words in different ways and then be concatenated using a custom algorithm.
+    The 96-bit unique device identifier can also be read in single bytes/half-words/words in
+   different ways and then be concatenated using a custom algorithm.
 */
 #define STM32_UUID ((uint32_t *)0x1FFF7A10)
 uint32_t target_get_serial()
 {
     // uuid[1] is the wafer number plus the lot number, need to check the uniqueness of this...
-    return STM32_UUID[0]^(STM32_UUID[1]*17)^(STM32_UUID[2]*13);
+    return STM32_UUID[0] ^ (STM32_UUID[1] * 17) ^ (STM32_UUID[2] * 13);
 }
 
 void target_reset()
@@ -72,21 +57,11 @@ void target_reset()
     NVIC_SystemReset();
 }
 
-extern "C" void assert_failed(uint8_t* file, uint32_t line)
+extern "C" void assert_failed(uint8_t *file, uint32_t line)
 {
     target_panic(920);
 }
 
-__attribute__((weak))
-void target_panic(int statusCode)
-{
-    target_disable_irq();
-
-    DMESG("*** CODAL PANIC : [%d]", statusCode);
-    while (1)
-    {
-    }
-}
 
 extern "C" void init_irqs();
 void target_init()

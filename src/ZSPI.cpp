@@ -238,15 +238,14 @@ void ZSPI::init()
     }
 
     auto pclkHz = enable_clock((uint32_t)spi.Instance);
-
-    for (int i = 0; baudprescaler[i]; i += 2)
+    for (int i = 0; baudprescaler[i + 1]; i += 2)
     {
         spi.Init.BaudRatePrescaler = baudprescaler[i];
-        if (pclkHz / baudprescaler[i + 1] <= freq)
+        if (pclkHz / baudprescaler[i + 1] <= freq) {
+            LOG("SPI at %d Hz", pclkHz / baudprescaler[i + 1]);
             break;
+        }
     }
-
-    spi.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
 
     auto res = HAL_SPI_Init(&spi);
     CODAL_ASSERT(res == HAL_OK);

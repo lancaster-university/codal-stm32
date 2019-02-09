@@ -198,7 +198,7 @@ DEFIRQ(SPI5_IRQHandler, SPI5_BASE)
 DEFIRQ(SPI6_IRQHandler, SPI6_BASE)
 #endif
 
-void ZSPI::init()
+void ZSPI::init_internal()
 {
     if (!needsInit)
         return;
@@ -316,7 +316,7 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
 {
     int res;
 
-    init();
+    init_internal();
 
     LOG("SPI start %p/%d %p/%d D=%p", txBuffer, txSize, rxBuffer, rxSize, doneHandler);
 

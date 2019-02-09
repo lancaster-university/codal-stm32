@@ -25,6 +25,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include "CodalConfig.h"
 #include "ZI2C.h"
+#include "ZPin.h"
 #include "ErrorNo.h"
 #include "pinmap.h"
 #include "PeripheralPins.h"
@@ -39,7 +40,7 @@ namespace codal
 {
 
 
-void ZI2C::init()
+void ZI2C::init_internal()
 {
     if (!needsInit)
         return;
@@ -105,7 +106,7 @@ int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
 
     CODAL_ASSERT(!repeated);
 
-    init();
+    init_internal();
     // timeout in ms - we use infinity
     auto res = HAL_I2C_Master_Transmit(&i2c, address, data, len, I2C_TIMEOUT);
 
@@ -122,7 +123,7 @@ int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
 
     CODAL_ASSERT(!repeated);
 
-    init();
+    init_internal();
     auto res = HAL_I2C_Master_Receive(&i2c, address, data, len, I2C_TIMEOUT);
 
     if (res == HAL_OK)
@@ -135,13 +136,27 @@ int ZI2C::readRegister(uint16_t address, uint8_t reg, uint8_t *data, int length,
 {
     CODAL_ASSERT(repeated);
 
-    init();
+    init_internal();
     auto res = HAL_I2C_Mem_Read(&i2c, address, reg, I2C_MEMADD_SIZE_8BIT, data, length, I2C_TIMEOUT);
 
     if (res == HAL_OK)
         return DEVICE_OK;
     else
         return DEVICE_I2C_ERROR;
+}
+
+int ZI2C::setSleep(bool sleepMode)
+{
+    // Doesn't seem to save any power
+    #if 0
+    if (sleepMode) {
+        HAL_I2C_DeInit(&i2c);
+        ((ZPin*)&sda)->disconnect();
+        ((ZPin*)&sda)->setDigitalValue(1);
+        ((ZPin*)&scl)->disconnect();
+        ((ZPin*)&scl)->setDigitalValue(1);
+    }
+    #endif
 }
 
 } // namespace codal

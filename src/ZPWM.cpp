@@ -4,10 +4,13 @@
 
 #define LOG DMESG
 
+using namespace codal;
+
 static ZPWM *instances[4];
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 
-ZPWM::ZPWM(Pin &pin, DataSource &source, int sampleRate, uint16_t id) : upstream(source)
+ZPWM::ZPWM(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) 
+    : pin(pin), upstream(source)
 {
     for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
     {
@@ -23,10 +26,9 @@ ZPWM::ZPWM(Pin &pin, DataSource &source, int sampleRate, uint16_t id) : upstream
     bufCnt = 0;
     outptr = 0;
 
-    pin.setDigitalValue(0);
-
-    pwmout_t pwm;
-    pwmout_init(&pwm, pin.name);
+    // use pin api, so that the pin knows we're in PWM mode
+    pin.setPWM(0, 20000);
+    pwmout_t &pwm = *pin.pwmCfg;
 
     memset(&tim, 0, sizeof(tim));
     tim.Instance = (TIM_TypeDef *)pwm.pwm;
@@ -52,6 +54,20 @@ ZPWM::ZPWM(Pin &pin, DataSource &source, int sampleRate, uint16_t id) : upstream
 
     // Register with our upstream component
     upstream.connect(*this);
+}
+
+int ZPWM::setSleep(bool sleepMode)
+{
+    if(sleepMode)
+    {
+        __HAL_TIM_SET_COMPARE(&tim, channel, 0);
+    }
+    else
+    {
+        // DMA should resume it
+    }
+
+    return DEVICE_OK;
 }
 
 /**
@@ -233,11 +249,16 @@ void ZPWM::nextBuffer()
     // ditto for buf1
     if (buf != buf1 && !*buf1)
         fillBuffer(buf1);
-
+    
     // if we didn't start playing and now have some data to play, try again
     if (buf == NULL && *buf0)
         nextBuffer();
-}
+
+    // if we're no longer active, make sure to set the PWM to 0% duty cycle
+    // not to leak electrons
+    if (!active)
+        __HAL_TIM_SET_COMPARE(&tim, channel, 0);
+} 
 
 /**
  * Base implementation of a DMA callback

@@ -44,9 +44,12 @@ namespace codal
 {
 
 struct ZEventConfig;
+class ZPWM;
 
 class ZPin : public codal::Pin
 {
+    friend class ZPWM;
+
 protected:
     union {
         pwmout_t *pwmCfg;

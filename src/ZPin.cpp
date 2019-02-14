@@ -354,18 +354,20 @@ int ZPin::getAnalogValue()
             __HAL_RCC_ADC1_CLK_ENABLE(); // enable adc clock
             AdcHandle.Instance = ADC1;
 
+#ifndef STM32F1
             AdcHandle.Init.ClockPrescaler        = ADC_CLOCKPRESCALER_PCLK_DIV4;          /* Asynchronous clock mode, input ADC clock not divided */
             AdcHandle.Init.Resolution            = ADC_RESOLUTION_10B;            /* 12-bit resolution for converted data */
+            AdcHandle.Init.EOCSelection          = DISABLE;                       /* EOC flag picked-up to indicate conversion end */
+            AdcHandle.Init.ExternalTrigConvEdge  = ADC_EXTERNALTRIGCONVEDGE_NONE; /* Parameter discarded because software trigger chosen */
+            AdcHandle.Init.DMAContinuousRequests = DISABLE;                       /* DMA one-shot mode selected (not applied to this example) */
+#endif
             AdcHandle.Init.DataAlign             = ADC_DATAALIGN_RIGHT;           /* Right-alignment for converted data */
             AdcHandle.Init.ScanConvMode          = DISABLE;                       /* Sequencer disabled (ADC conversion on only 1 channel: channel set on rank 1) */
-            AdcHandle.Init.EOCSelection          = DISABLE;                       /* EOC flag picked-up to indicate conversion end */
             AdcHandle.Init.ContinuousConvMode    = DISABLE;                       /* Continuous mode disabled to have only 1 conversion at each conversion trig */
             AdcHandle.Init.NbrOfConversion       = 1;                             /* Parameter discarded because sequencer is disabled */
             AdcHandle.Init.DiscontinuousConvMode = DISABLE;                       /* Parameter discarded because sequencer is disabled */
             AdcHandle.Init.NbrOfDiscConversion   = 0;                             /* Parameter discarded because sequencer is disabled */
             AdcHandle.Init.ExternalTrigConv      = ADC_EXTERNALTRIGCONV_T1_CC1;   /* Software start to trig the 1st conversion manually, without external event */
-            AdcHandle.Init.ExternalTrigConvEdge  = ADC_EXTERNALTRIGCONVEDGE_NONE; /* Parameter discarded because software trigger chosen */
-            AdcHandle.Init.DMAContinuousRequests = DISABLE;                       /* DMA one-shot mode selected (not applied to this example) */
 
             CODAL_ASSERT(HAL_ADC_Init(&AdcHandle) == HAL_OK);
             adcInited = true;
@@ -378,8 +380,12 @@ int ZPin::getAnalogValue()
     ADC_ChannelConfTypeDef sConfig;
     sConfig.Channel = ch;
     sConfig.Rank = 1;
+#ifdef STM32F1
+    sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+#else
     sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
     sConfig.Offset = 0;
+#endif
 
     CODAL_ASSERT(HAL_ADC_ConfigChannel(&AdcHandle, &sConfig) == HAL_OK);
 

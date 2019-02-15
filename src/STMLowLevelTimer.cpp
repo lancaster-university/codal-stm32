@@ -1,5 +1,6 @@
 #include "STMLowLevelTimer.h"
 #include "CodalDmesg.h"
+#include "pwmout_api.h"
 
 using namespace codal;
 
@@ -64,7 +65,8 @@ extern "C" void TIM5_IRQHandler()
 
 STMLowLevelTimer::STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn) : LowLevelTimer(4)
 {
-    __HAL_RCC_TIM5_CLK_ENABLE();
+    enable_tim_clk((uint32_t)timer);
+
     this->timer_instance = timer;
     this->irqN = irqn;
     memset(&TimHandle, 0, sizeof(TIM_HandleTypeDef));
@@ -89,8 +91,10 @@ STMLowLevelTimer::STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn) : LowLevelT
         instance_index = 2;
     if (timer == TIM4)
         instance_index = 3;
+#ifdef TIM5
     if (timer == TIM5)
         instance_index = 4;
+#endif
 
     instances[instance_index] = this;
 }

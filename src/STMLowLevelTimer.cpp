@@ -71,6 +71,8 @@ STMLowLevelTimer::STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn) : LowLevelT
     this->irqN = irqn;
     memset(&TimHandle, 0, sizeof(TIM_HandleTypeDef));
 
+    disableIRQ(); // otherwise it might hit us while we're initializing
+
     DMESG("SYS CLK: %d %d", SystemCoreClock, (uint32_t)((SystemCoreClock / 1000000)));
 
     TimHandle.Instance = this->timer_instance;

@@ -75,7 +75,7 @@ uint32_t codal_setup_pin(Pin *p, uint32_t prev, const PinMap *map)
     uint32_t tmp = pinmap_peripheral(pin, map);
     pin_function(pin, pinmap_function(pin, map));
     pin_mode(pin, PullNone);
-    CODAL_ASSERT(!prev || prev == tmp);
+    CODAL_ASSERT(!prev || prev == tmp, DEVICE_HARDWARE_CONFIGURATION_ERROR);
     return tmp;
 }
 
@@ -117,7 +117,7 @@ static int enable_clock(uint32_t instance)
 #endif
 
     default:
-        CODAL_ASSERT(0);
+        CODAL_ASSERT(0, DEVICE_HARDWARE_CONFIGURATION_ERROR);
         return 0;
     }
     return 0;
@@ -249,7 +249,7 @@ void ZSPI::init()
     spi.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
 
     auto res = HAL_SPI_Init(&spi);
-    CODAL_ASSERT(res == HAL_OK);
+    CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 }
 
 ZSPI::ZSPI(Pin &mosi, Pin &miso, Pin &sclk) : codal::SPI()
@@ -287,7 +287,7 @@ int ZSPI::setMode(int mode, int bits)
     spi.Init.CLKPolarity = mode & 2 ? SPI_POLARITY_HIGH : SPI_POLARITY_LOW;
     needsInit = true;
 
-    CODAL_ASSERT(bits == 8);
+    CODAL_ASSERT(bits == 8, DEVICE_SPI_ERROR);
 
     return DEVICE_OK;
 }
@@ -302,7 +302,7 @@ int ZSPI::write(int data)
 }
 
 int ZSPI::transfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuffer, uint32_t rxSize)
-{    
+{
     fiber_wake_on_event(DEVICE_ID_NOTIFY, transferCompleteEventCode);
     auto res = startTransfer(txBuffer, txSize, rxBuffer, rxSize, NULL, NULL);
     LOG("SPI ->");
@@ -325,7 +325,7 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
 
     if (txSize && rxSize)
     {
-        CODAL_ASSERT(txSize == rxSize); // we could support this if needed
+        CODAL_ASSERT(txSize == rxSize, DEVICE_SPI_ERROR); // we could support this if needed
         res = HAL_SPI_TransmitReceive_DMA(&spi, (uint8_t *)txBuffer, rxBuffer, txSize);
     }
     else if (txSize)
@@ -341,7 +341,7 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
         return 0; // nothing to do
     }
 
-    CODAL_ASSERT(res == HAL_OK);
+    CODAL_ASSERT(res == HAL_OK, DEVICE_SPI_ERROR);
 
     return 0;
 }

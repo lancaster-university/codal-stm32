@@ -1,5 +1,6 @@
 #include "dma.h"
 #include "CodalDmesg.h"
+#include "ErrorNo.h"
 
 #ifdef STM32F4
 
@@ -81,7 +82,7 @@ MBED_WEAK const DmaMap TheDmaMap[] = //
         {USART6_BASE, DMA_TX, 2, 6, 5},
         {USART6_BASE, DMA_TX, 2, 7, 5},
 
-        // 
+        //
         {TIM1_BASE, DMA_TIM_CH1, 2, 1, 6},
         {TIM1_BASE, DMA_TIM_CH2, 2, 2, 6},
         {TIM1_BASE, DMA_TIM_CH1, 2, 3, 6},
@@ -95,7 +96,7 @@ MBED_WEAK const DmaMap TheDmaMap[] = //
         //{TIM2_BASE, DMA_TIM_CH4, 1, 6, 3}, // duplicate TIM channels on a single DMA stream
         {TIM2_BASE, DMA_TIM_CH4, 1, 7, 3},
 
-        // 
+        //
         {TIM3_BASE, DMA_TIM_CH4, 1, 2, 5},
         {TIM3_BASE, DMA_TIM_CH1, 1, 4, 5},
         {TIM3_BASE, DMA_TIM_CH2, 1, 5, 5},
@@ -153,8 +154,8 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
     {
         if (map->peripheral == peripheral && map->rxdx == rxdx)
         {
-            CODAL_ASSERT(map->dma <= NUM_DMA);
-            CODAL_ASSERT(map->stream < NUM_STREAMS);
+            CODAL_ASSERT(map->dma <= NUM_DMA, DEVICE_HARDWARE_CONFIGURATION_ERROR);
+            CODAL_ASSERT(map->stream < NUM_STREAMS, DEVICE_HARDWARE_CONFIGURATION_ERROR);
             id = (map->dma - 1) * NUM_STREAMS + map->stream;
             if (handles[id] == NULL)
             {
@@ -164,7 +165,7 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
         }
     }
 
-    CODAL_ASSERT(map->peripheral);
+    CODAL_ASSERT(map->peripheral, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     obj->Instance = streams[id].instance;
 
@@ -196,7 +197,7 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
         __HAL_RCC_DMA2_CLK_ENABLE();
 
     int res = HAL_DMA_Init(obj);
-    CODAL_ASSERT(res == HAL_OK);
+    CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     LOG("DMA init %p irq=%d ch=%d str=%d", obj->Instance, streams[id].irqn, map->channel,
         map->stream);

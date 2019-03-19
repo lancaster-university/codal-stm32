@@ -109,6 +109,21 @@ void ZPin::disconnect()
     if (this->status & (IO_STATUS_EVENT_ON_EDGE | IO_STATUS_EVENT_PULSE_ON_EDGE | IO_STATUS_INTERRUPT_ON_EDGE))
     {
         EXTI->IMR &= ~GPIO_PIN();
+
+        int pin = (int)name & PINMASK;
+
+#ifdef STM32F1
+        volatile uint32_t *ptr = &AFIO->EXTICR[pin >> 2];
+#else
+        volatile uint32_t *ptr = &SYSCFG->EXTICR[pin >> 2];
+#endif
+        int shift = (pin & 3) * 4;
+        int port = (int)name >> 4;
+
+        // take over line for ourselves
+        *ptr = (*ptr & ~(0xf << shift));
+
+
         if (this->evCfg)
             delete this->evCfg;
         this->evCfg = NULL;

@@ -6,6 +6,7 @@
 #include "pinmap.h"
 #include "PeripheralPins.h"
 #include "CodalFiber.h"
+#include "ErrorNo.h"
 
 using namespace codal;
 
@@ -46,7 +47,7 @@ static int enable_clock(uint32_t instance)
         return HAL_RCC_GetPCLK2Freq();
 #endif
     default:
-        CODAL_ASSERT(0);
+        CODAL_ASSERT(0, DEVICE_HARDWARE_CONFIGURATION_ERROR);
         return 0;
     }
     return 0;
@@ -61,7 +62,7 @@ void ZSingleWireSerial::_complete(uint32_t instance, uint32_t mode)
             if (mode == SWS_EVT_ERROR)
             {
                 uint8_t err = HAL_UART_GetError(&instances[i]->uart);
-                // codal_dmesg("ERROR %d", HAL_UART_GetError(&instances[i]->uart));
+                DMESG("HALE %d", err);
                 // if (err == HAL_UART_ERROR_FE)
                 // {
                 //     // a uart error disable any previously configured DMA transfers, we will always get a framing error...
@@ -211,6 +212,7 @@ int ZSingleWireSerial::configureRx(int enable)
         pin_mode(pin, PullNone);
         // 5 us
         uart.Init.Mode = UART_MODE_RX;
+
         HAL_HalfDuplex_Init(&uart);
         // additional 9 us
         status |= RX_CONFIGURED;
@@ -281,7 +283,7 @@ int ZSingleWireSerial::sendDMA(uint8_t* data, int len)
 
     int res = HAL_UART_Transmit_DMA(&uart, data, len);
 
-    CODAL_ASSERT(res == HAL_OK);
+    CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     return DEVICE_OK;
 }
@@ -297,7 +299,7 @@ int ZSingleWireSerial::receiveDMA(uint8_t* data, int len)
     int res = HAL_UART_Receive_DMA(&uart, data, len);
 
     // DMESG("RES %d",res);
-    CODAL_ASSERT(res == HAL_OK);
+    CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     return DEVICE_OK;
 }

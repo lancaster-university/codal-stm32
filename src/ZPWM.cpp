@@ -91,8 +91,8 @@ int ZPWM::setSampleRate(int frequency)
     int prescaler = cyclesPerSample / 256;
     int period_ticks = clock_frequency / (prescaler * frequency);
 
-    CODAL_ASSERT(period_ticks >= 256);
-    CODAL_ASSERT(period_ticks <= 512); // in reality it should be 260 or so
+    CODAL_ASSERT(period_ticks >= 256, DEVICE_HARDWARE_CONFIGURATION_ERROR);
+    CODAL_ASSERT(period_ticks <= 512, DEVICE_HARDWARE_CONFIGURATION_ERROR); // in reality it should be 260 or so
 
     tim.Init.Period = period_ticks;
     if (IS_TIM_ADVANCED_INSTANCE(tim.Instance) && false)
@@ -113,13 +113,13 @@ int ZPWM::setSampleRate(int frequency)
     LOG("PWM presc=%d period=%d freq=%d->%d", prescaler, period_ticks, frequency, sampleRate);
 
     auto res = HAL_TIM_PWM_Init(&tim);
-    CODAL_ASSERT(res == HAL_OK);
+    CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     TIM_OC_InitTypeDef sConfig;
     memset(&sConfig, 0, sizeof(sConfig));
     sConfig.OCMode = TIM_OCMODE_PWM1;
     res = HAL_TIM_PWM_ConfigChannel(&tim, &sConfig, channels[this->channel - 1]);
-    CODAL_ASSERT(res == HAL_OK);
+    CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     LOG("PWM inited");
 
@@ -218,7 +218,7 @@ void ZPWM::nextBuffer()
         auto res = HAL_TIM_PWM_Start_DMA(&tim, ch, buf + 1, *buf * repCount);
         // no longer something to send
         *buf = 0;
-        CODAL_ASSERT(res == HAL_OK);
+        CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
         active = true;
     }
     else

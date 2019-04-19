@@ -88,7 +88,7 @@ void usb_configure(uint8_t numEndpoints)
 
 #ifdef USB
     __HAL_RCC_USB_CLK_ENABLE();
-    irqn = USB_IRQn;
+    irqn = USB_HP_CAN1_TX_IRQn;
     pcd.Init.speed = PCD_SPEED_FULL;
 #else  /* USB_OTG_FS */
     __HAL_RCC_USB_OTG_FS_CLK_ENABLE();
@@ -112,8 +112,14 @@ void usb_configure(uint8_t numEndpoints)
         HAL_PCDEx_SetTxFiFo(&pcd, i, FIFO_EP_WORDS);
 #endif /* USB */
 
+    // USB_HP_CAN1_TX_IRQn
+    // USB_LP_CAN1_RX_IRQn
+
+NVIC_SetPriority(USB_LP_CAN1_RX0_IRQn, 5);
+    NVIC_EnableIRQ(USB_LP_CAN1_RX0_IRQn);
     NVIC_SetPriority(irqn, 5);
     NVIC_EnableIRQ(irqn);
+
 }
 
 #if 0
@@ -150,6 +156,8 @@ static UsbEndpointOut *findOutEp(int ep)
 
 extern "C"
 {
+    void USB_LP_IRQHandler(void) { HAL_PCD_IRQHandler(&pcd); }
+    void USB_HP_IRQHandler(void) { HAL_PCD_IRQHandler(&pcd); }
 
     void OTG_FS_IRQHandler(void) { HAL_PCD_IRQHandler(&pcd); }
 
@@ -337,25 +345,33 @@ static void writeEP(uint8_t *data, uint8_t ep, int len)
 {
     usb_assert(len <= USB_MAX_PKT_SIZE);
     uint32_t len32b = (len + 3) / 4;
-
+#ifndef USB
     DBG("%d write space: %d words", (int)codal::system_timer_current_time_us(),
         USBx_INEP(ep)->DTXFSTS & USB_OTG_DTXFSTS_INEPTFSAV);
 
     while ((USBx_INEP(ep)->DTXFSTS & USB_OTG_DTXFSTS_INEPTFSAV) < len32b)
         ;
 
-    DBG("write: %p len=%d at IN %d", data, len, ep);
+     DBG("write: %p len=%d at IN %d", data, len, ep);
     CHK(HAL_PCD_EP_Transmit(&pcd, ep | 0x80, data, len));
 
     if (len)
         CHK(USB_WritePacket(pcd.Instance, data, ep, len, 0));
+#else
+    DBG("write: %p len=%d at IN %d", data, len, ep);
+    CHK(HAL_PCD_EP_Transmit(&pcd, ep | 0x80, data, len));
 
+    if (len)
+        CHK(USB_WritePacket(pcd.Instance, data, ep, len));
+#endif
+
+#ifndef USB
     USBx_DEVICE->DIEPEMPMSK &= ~0x1U << ep;
 
     while (!(USB_ReadDevInEPInterrupt(pcd.Instance, ep) & USB_OTG_DIEPINT_XFRC))
         ;
     CLEAR_IN_EP_INTR(ep, USB_OTG_DIEPINT_XFRC);
-
+#endif
     DBG("%d write done, ctl=%p", (int)codal::system_timer_current_time_us(),
         USBx_OUTEP(0)->DOEPCTL);
 

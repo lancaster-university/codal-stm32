@@ -1,8 +1,9 @@
 #include "dma.h"
 #include "CodalDmesg.h"
+#include "ErrorNo.h"
 
 #ifdef STM32F1
-
+#include "stm32f1xx.h"
 #define NUM_STREAMS 7
 #define NUM_DMA 2
 
@@ -30,28 +31,29 @@ const DmaStream streams[] = //
      {DMA1_Channel5, DMA1_Channel5_IRQn},
      {DMA1_Channel6, DMA1_Channel6_IRQn},
      {DMA1_Channel7, DMA1_Channel7_IRQn},
-     {DMA2_Channel1, DMA2_Channel1_IRQn},
-     {DMA2_Channel2, DMA2_Channel2_IRQn},
-     {DMA2_Channel3, DMA2_Channel3_IRQn},
-     {DMA2_Channel4, DMA2_Channel4_5_IRQn},
-     {DMA2_Channel5, DMA2_Channel4_5_IRQn},
+
+    //  {DMA2_Channel1, DMA2_Channel1_IRQn},
+    //  {DMA2_Channel2, DMA2_Channel2_IRQn},
+    //  {DMA2_Channel3, DMA2_Channel3_IRQn},
+    //  {DMA2_Channel4, DMA2_Channel4_5_IRQn},
+    //  {DMA2_Channel5, DMA2_Channel4_5_IRQn},
      {0, 0}};
 
 MBED_WEAK const DmaMap TheDmaMap[] = //
     {{ADC1_BASE, DMA_RX, 1},
-     {ADC3_BASE, DMA_RX, 15},
+    //  {ADC3_BASE, DMA_RX, 15},
      {SPI1_BASE, DMA_RX, 2},
      {SPI1_BASE, DMA_TX, 3},
      {SPI2_BASE, DMA_RX, 4},
      {SPI2_BASE, DMA_TX, 5},
 
-     {SPI3_BASE, DMA_RX, 11},
-     {SPI3_BASE, DMA_TX, 12},
+    //  {SPI3_BASE, DMA_RX, 11},
+    //  {SPI3_BASE, DMA_TX, 12},
 
-     {UART4_BASE, DMA_RX, 13},
-     {UART4_BASE, DMA_TX, 15},
+    //  {UART4_BASE, DMA_RX, 13},
+    //  {UART4_BASE, DMA_TX, 15},
 
-     {DAC_BASE, DMA_TX, 13},
+    //  {DAC_BASE, DMA_TX, 13},
 
      {USART3_BASE, DMA_TX, 2},
      {USART3_BASE, DMA_RX, 3},
@@ -114,7 +116,7 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
         }
     }
 
-    CODAL_ASSERT(map->peripheral);
+    CODAL_ASSERT(map->peripheral, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     obj->Instance = streams[id].instance;
 
@@ -141,11 +143,11 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
 
     if (map->channel <= 10)
         __HAL_RCC_DMA1_CLK_ENABLE();
-    else
-        __HAL_RCC_DMA2_CLK_ENABLE();
+    // else
+    //     __HAL_RCC_DMA2_CLK_ENABLE();
 
     int res = HAL_DMA_Init(obj);
-    CODAL_ASSERT(res == HAL_OK);
+    CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     LOG("DMA init %p irq=%d ch=%d str=%d", obj->Instance, streams[id].irqn, map->channel,
         map->stream);

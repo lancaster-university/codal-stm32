@@ -67,6 +67,7 @@ STMLowLevelTimer::STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn) : LowLevelT
     this->timer_instance = timer;
     this->irqN = irqn;
     memset(&TimHandle, 0, sizeof(TIM_HandleTypeDef));
+    disableIRQ();
 
     DMESG("SYS CLK: %d %d", SystemCoreClock, (uint32_t)((SystemCoreClock / 1000000)));
 
@@ -86,7 +87,7 @@ STMLowLevelTimer::STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn) : LowLevelT
     else if (timer == TIM2)
     {
         instance_index = 1;
-        setBitMode(BitMode32);
+        setBitMode(BitMode16);
         __HAL_RCC_TIM2_CLK_ENABLE();
     }
     else if (timer == TIM3)
@@ -101,19 +102,20 @@ STMLowLevelTimer::STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn) : LowLevelT
         setBitMode(BitMode16);
         __HAL_RCC_TIM4_CLK_ENABLE();
     }
+#ifdef TIM5
     else if (timer == TIM5)
     {
         instance_index = 4;
         setBitMode(BitMode32);
         __HAL_RCC_TIM5_CLK_ENABLE();
     }
+#endif
     else
         // other timers aren't supported at present.
         target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
-    HAL_TIM_OC_Init(&TimHandle);
-
     instances[instance_index] = this;
+    HAL_TIM_OC_Init(&TimHandle);
 }
 
 int STMLowLevelTimer::enable()

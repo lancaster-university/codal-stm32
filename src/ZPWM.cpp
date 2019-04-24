@@ -181,7 +181,14 @@ void ZPWM::fillBuffer(uint32_t *buf)
             if (!dataReady)
                 break;
             dataReady--;
-            output = upstream.pull();
+            if (!active) {
+                // pull() might invoke pullReq(), which would call nextBuffer() if not active, and back here
+                active = true;
+                output = upstream.pull();
+                active = false;
+            } else {
+                output = upstream.pull();
+            }
             outptr = 0;
             len = output.length();
             if (len == 0)

@@ -34,15 +34,18 @@ static int enable_clock(uint32_t instance)
     {
     case USART1_BASE:
         __HAL_RCC_USART1_CLK_ENABLE();
+        NVIC_SetPriority(USART1_IRQn, 1);
         NVIC_EnableIRQ(USART1_IRQn);
         return HAL_RCC_GetPCLK2Freq();
     case USART2_BASE:
         __HAL_RCC_USART2_CLK_ENABLE();
+        NVIC_SetPriority(USART2_IRQn, 1);
         NVIC_EnableIRQ(USART2_IRQn);
         return HAL_RCC_GetPCLK1Freq();
 #ifdef USART6_BASE
     case USART6_BASE:
         __HAL_RCC_USART6_CLK_ENABLE();
+        NVIC_SetPriority(USART6_IRQn, 1);
         NVIC_EnableIRQ(USART6_IRQn);
         return HAL_RCC_GetPCLK2Freq();
 #endif

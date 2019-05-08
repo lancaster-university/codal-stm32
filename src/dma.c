@@ -202,6 +202,7 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
     LOG("DMA init %p irq=%d ch=%d str=%d", obj->Instance, streams[id].irqn, map->channel,
         map->stream);
 
+    NVIC_SetPriority(streams[id].irqn, 1);
     NVIC_EnableIRQ(streams[id].irqn);
 
     return 0;

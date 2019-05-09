@@ -19,6 +19,8 @@ extern "C" {
 
 int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flags);
 
+void dma_set_irq_priority(uint32_t peripheral, uint8_t rxdx, int priority);
+
 #ifdef __cplusplus
 }
 #endif

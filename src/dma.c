@@ -143,6 +143,20 @@ DEFIRQ(DMA2_Stream5_IRQHandler, NUM_STREAMS + 5)
 DEFIRQ(DMA2_Stream6_IRQHandler, NUM_STREAMS + 6)
 DEFIRQ(DMA2_Stream7_IRQHandler, NUM_STREAMS + 7)
 
+int lookup_dma(uint32_t peripheral, uint8_t rxdx)
+{
+    int id = -1;
+    const DmaMap *map;
+
+    for (map = TheDmaMap; map->peripheral; map++)
+    {
+        if (map->peripheral == peripheral && map->rxdx == rxdx)
+            id = (map->dma - 1) * NUM_STREAMS + map->stream;
+    }
+
+    return id;
+}
+
 int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flags)
 {
     memset(obj, 0, sizeof(*obj));
@@ -206,6 +220,17 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
     NVIC_EnableIRQ(streams[id].irqn);
 
     return 0;
+}
+
+void dma_set_irq_priority(uint32_t peripheral, uint8_t rxdx, int priority)
+{
+    int id = lookup_dma(peripheral, rxdx);
+
+    CODAL_ASSERT(id != -1, DEVICE_HARDWARE_CONFIGURATION_ERROR);
+
+    NVIC_DisableIRQ(streams[id].irqn);
+    NVIC_SetPriority(streams[id].irqn, priority);
+    NVIC_EnableIRQ(streams[id].irqn);
 }
 
 #endif

@@ -18,29 +18,31 @@ class STMLowLevelTimer : public LowLevelTimer
 
     STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn);
 
-    virtual int enable();
+    virtual int setIRQPriority(int) override;
 
-    virtual int enableIRQ();
+    virtual int enable() override;
 
-    virtual int disable();
+    virtual int enableIRQ() override;
 
-    virtual int disableIRQ();
+    virtual int disable() override;
 
-    virtual int reset();
+    virtual int disableIRQ() override;
 
-    virtual int setMode(TimerMode t);
+    virtual int reset() override;
 
-    virtual int setCompare(uint8_t channel, uint32_t value);
+    virtual int setMode(TimerMode t) override;
 
-    virtual int offsetCompare(uint8_t channel, uint32_t value);
+    virtual int setCompare(uint8_t channel, uint32_t value) override;
 
-    virtual int clearCompare(uint8_t channel);
+    virtual int offsetCompare(uint8_t channel, uint32_t value) override;
 
-    virtual uint32_t captureCounter();
+    virtual int clearCompare(uint8_t channel) override;
 
-    virtual int setClockSpeed(uint32_t speedKHz);
+    virtual uint32_t captureCounter() override;
 
-    virtual int setBitMode(TimerBitMode t);
+    virtual int setClockSpeed(uint32_t speedKHz) override;
+
+    virtual int setBitMode(TimerBitMode t) override;
 };
 
 }

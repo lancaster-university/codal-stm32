@@ -113,12 +113,19 @@ STMLowLevelTimer::STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn) : LowLevelT
 
     HAL_TIM_OC_Init(&TimHandle);
 
+    setIRQPriority(2);
+
     instances[instance_index] = this;
+}
+
+int STMLowLevelTimer::setIRQPriority(int priority)
+{
+    NVIC_SetPriority((IRQn_Type)this->irqN, priority);
+    return DEVICE_OK;
 }
 
 int STMLowLevelTimer::enable()
 {
-    NVIC_SetPriority((IRQn_Type)this->irqN, 1);
     NVIC_ClearPendingIRQ((IRQn_Type)this->irqN);
     enableIRQ();
     HAL_TIM_OC_Start_IT(&TimHandle, TIM_CHANNEL_1);

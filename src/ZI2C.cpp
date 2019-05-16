@@ -157,6 +157,7 @@ int ZI2C::setSleep(bool sleepMode)
         ((ZPin*)&scl)->setDigitalValue(1);
     }
     #endif
+    return DEVICE_OK;
 }
 
 } // namespace codal

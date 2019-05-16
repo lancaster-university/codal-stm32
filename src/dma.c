@@ -81,7 +81,7 @@ MBED_WEAK const DmaMap TheDmaMap[] = //
         {USART6_BASE, DMA_TX, 2, 6, 5},
         {USART6_BASE, DMA_TX, 2, 7, 5},
 
-        // 
+        //
         {TIM1_BASE, DMA_TIM_CH1, 2, 1, 6},
         {TIM1_BASE, DMA_TIM_CH2, 2, 2, 6},
         {TIM1_BASE, DMA_TIM_CH1, 2, 3, 6},
@@ -95,7 +95,7 @@ MBED_WEAK const DmaMap TheDmaMap[] = //
         //{TIM2_BASE, DMA_TIM_CH4, 1, 6, 3}, // duplicate TIM channels on a single DMA stream
         {TIM2_BASE, DMA_TIM_CH4, 1, 7, 3},
 
-        // 
+        //
         {TIM3_BASE, DMA_TIM_CH4, 1, 2, 5},
         {TIM3_BASE, DMA_TIM_CH1, 1, 4, 5},
         {TIM3_BASE, DMA_TIM_CH2, 1, 5, 5},
@@ -151,7 +151,8 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
 
     for (map = TheDmaMap; map->peripheral; map++)
     {
-        if (map->peripheral == peripheral && map->rxdx == rxdx)
+        if ((map->peripheral == peripheral && map->rxdx == rxdx) ||
+            (peripheral == 0 && map->dma == 2))
         {
             CODAL_ASSERT(map->dma <= NUM_DMA);
             CODAL_ASSERT(map->stream < NUM_STREAMS);
@@ -169,8 +170,10 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
     obj->Instance = streams[id].instance;
 
     obj->Init.Channel = channels[map->channel];
-    obj->Init.Direction = rxdx == DMA_RX ? DMA_PERIPH_TO_MEMORY : DMA_MEMORY_TO_PERIPH;
-    obj->Init.PeriphInc = DMA_PINC_DISABLE;
+    obj->Init.Direction = peripheral == 0
+                              ? DMA_MEMORY_TO_MEMORY
+                              : rxdx == DMA_RX ? DMA_PERIPH_TO_MEMORY : DMA_MEMORY_TO_PERIPH;
+    obj->Init.PeriphInc = peripheral == 0 ? DMA_PINC_ENABLE : DMA_PINC_DISABLE;
     obj->Init.MemInc = DMA_MINC_ENABLE;
     if (flags & DMA_FLAG_2BYTE)
     {

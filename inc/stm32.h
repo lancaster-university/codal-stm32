@@ -59,6 +59,8 @@
 #define PC_14 0x2E
 #define PC_15 0x2F
 #define PD_2 0x32
+#define PD_4 0x34
+#define PD_5 0x35
 #define PH_0 0x70
 #define PH_1 0x71
 

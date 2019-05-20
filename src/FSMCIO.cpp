@@ -81,6 +81,7 @@ FSMCIO::FSMCIO(uint32_t flags, PinNumber wr, PinNumber rd)
     int hasRead = rd != 0xff;
 
     // 100+ pin version
+#ifdef PD_5
     if (wr == PD_5)
     {
         if (hasRead && rd != PD_4)
@@ -97,7 +98,9 @@ FSMCIO::FSMCIO(uint32_t flags, PinNumber wr, PinNumber rd)
         gpio_init_structure.Pin = GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10;
         HAL_GPIO_Init(GPIOE, &gpio_init_structure);
     }
-    else if (wr == PC_2 || wr == PD_2)
+    else 
+#endif
+    if (wr == PC_2 || wr == PD_2)
     {
         if (hasRead && rd != PC_5)
             oops();
@@ -145,15 +148,13 @@ void FSMCIO::send(const void *txBuffer, uint32_t txSize)
         FSMC_DATA = *ptr++;
 }
 
-static void HAL_SRAM_DMA_XferCpltCallback(DMA_HandleTypeDef *hdma)
+static void HAL_SRAM_DMA_XferCpltCallback(DMA_HandleTypeDef *)
 {
-    UNUSED(hdma);
     theInstance->doneHandler(theInstance->handlerArg);
 }
 
-static void HAL_SRAM_DMA_XferErrorCallback(DMA_HandleTypeDef *hdma)
+static void HAL_SRAM_DMA_XferErrorCallback(DMA_HandleTypeDef *)
 {
-    UNUSED(hdma);
     oops();
 }
 

@@ -17,19 +17,6 @@
 namespace codal
 {
 
-class FSMCIO : public ScreenIO
-{
-public:
-    DMA_HandleTypeDef hdma;
-    PVoidCallback doneHandler;
-    void *handlerArg;
-
-    FSMCIO(uint32_t flags, PinNumber wr, PinNumber rd);
-    virtual void send(const void *txBuffer, uint32_t txSize);
-    virtual void startSend(const void *txBuffer, uint32_t txSize, PVoidCallback doneHandler,
-                           void *handlerArg);
-};
-
 static FSMCIO *theInstance;
 
 FSMCIO::FSMCIO(uint32_t flags, PinNumber wr, PinNumber rd)
@@ -145,11 +132,6 @@ void FSMCIO::startSend(const void *txBuffer, uint32_t txSize, PVoidCallback done
     hdma.XferCpltCallback = HAL_SRAM_DMA_XferCpltCallback;
     hdma.XferErrorCallback = HAL_SRAM_DMA_XferErrorCallback;
     HAL_DMA_Start_IT(&hdma, (uint32_t)txBuffer, (uint32_t)&FSMC_DATA, txSize);
-}
-
-ScreenIO *createParallelScreenIO(uint32_t flags, PinNumber wr, PinNumber rd)
-{
-    return new FSMCIO(flags, wr, rd);
 }
 
 } // namespace codal

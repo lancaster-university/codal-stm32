@@ -1,10 +1,9 @@
 #ifndef FSMCIO_H
 #define FSMCIO_H
 
-#include "ST7735.h"
-#include "ZPin.h"
-
-#ifdef FSMC_Bank1
+#include "SPI.h"
+#include "Pin.h"
+#include "ScreenIO.h"
 
 namespace codal
 {
@@ -12,7 +11,6 @@ namespace codal
 class FSMCIO : public ScreenIO
 {
 public:
-    SRAM_HandleTypeDef hsram;
     DMA_HandleTypeDef hdma;
     PVoidCallback doneHandler;
     void *handlerArg;
@@ -23,10 +21,9 @@ public:
                            void *handlerArg);
 };
 
+
 } // namespace codal
 
-#define PARALLEL_SCREEN_IO codal::FSMCIO
-
-#endif
+#define CODAL_CREATE_PARALLEL_SCREEN_IO new codal::FSMCIO
 
 #endif

@@ -59,10 +59,6 @@
 #define PC_14 0x2E
 #define PC_15 0x2F
 #define PD_2 0x32
-#if defined(STM32F412Zx) || defined(STM32F412Vx)
-#define PD_4 0x34
-#define PD_5 0x35
-#endif
 #define PH_0 0x70
 #define PH_1 0x71
 

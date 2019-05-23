@@ -11,11 +11,10 @@
 #define ZPWM_DEFAULT_FREQUENCY 44100
 #endif
 
-using namespace codal;
+namespace codal {
 
 class ZPWM : public CodalComponent, public DataSink
 {
-
 private:
     TIM_HandleTypeDef tim;
     DMA_HandleTypeDef hdma_left;
@@ -32,6 +31,8 @@ private:
     uint32_t bufCnt; // size of buffer is repCount*bufCnt*4 bytes
     uint32_t outptr;
 
+    ZPin &pin;
+
     void fillBuffer(uint32_t *buf);
     void nextBuffer();
 
@@ -47,7 +48,7 @@ public:
      * @param sampleRate The frequency (in Hz) that data will be presented.
      * @param id The id to use for the message bus when transmitting events.
      */
-    ZPWM(Pin &pin, DataSource &source, int sampleRate = ZPWM_DEFAULT_FREQUENCY,
+    ZPWM(ZPin &pin, DataSource &source, int sampleRate = ZPWM_DEFAULT_FREQUENCY,
          uint16_t id = DEVICE_ID_SYSTEM_DAC);
 
     /**
@@ -88,7 +89,14 @@ public:
      */
     void disable();
 
-    friend void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim);
+    friend void ::HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim);
+
+    /**
+     * Puts the DAC in (or out of) sleep mode.
+     */
+    virtual int setSleep(bool sleepMode);
 };
+
+}
 
 #endif

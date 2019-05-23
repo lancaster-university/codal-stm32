@@ -160,6 +160,15 @@ const uint8_t APBPrescTable[8U] =  {0, 0, 0, 0, 1, 2, 3, 4};
   * @}
   */
 
+// This is called very early in reset handler, before global variables are initalized,
+// with the clock still running at initial speed (from HSI).
+// It can be used to cut wakeup time from stand-by mode, and presumably go back to
+// stand-by very quickly in most cases, to lower power consumption.
+__attribute__((weak))
+void UserSystemInit()
+{
+}
+
 /** @addtogroup STM32F1xx_System_Private_Functions
   * @{
   */
@@ -226,6 +235,8 @@ void SystemInit (void)
 #else
   //SCB->VTOR = FLASH_BASE | VECT_TAB_OFFSET; /* Vector Table Relocation in Internal FLASH. */
 #endif 
+
+  UserSystemInit();
 }
 
 /**

@@ -40,7 +40,7 @@ struct SPI_HandleWithParent : public SPI_HandleTypeDef
 /**
  * Class definition for SPI service, derived from ARM mbed.
  */
-class ZSPI : public codal::SPI
+class ZSPI : public codal::SPI, public codal::CodalComponent
 {
 protected:
     Pin *mosi, *miso, *sclk;
@@ -58,7 +58,7 @@ protected:
     uint16_t transferCompleteEventCode;
 
     void complete();
-    void init();
+    void init_internal();
 
 public:
     static void _complete(uint32_t instance);

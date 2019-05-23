@@ -74,7 +74,7 @@ uint32_t codal_setup_pin(Pin *p, uint32_t prev, const PinMap *map)
     auto pin = p->name;
     uint32_t tmp = pinmap_peripheral(pin, map);
     pin_function(pin, pinmap_function(pin, map));
-    pin_mode(pin, PullNone);
+    // pin_mode(pin, PullNone);
     CODAL_ASSERT(!prev || prev == tmp, DEVICE_HARDWARE_CONFIGURATION_ERROR);
     return tmp;
 }
@@ -136,7 +136,7 @@ void ZSPI::complete()
     {
         PVoidCallback done = doneHandler;
         doneHandler = NULL;
-        //create_fiber(done, doneHandlerArg);
+        // create_fiber(done, doneHandlerArg);
         done(doneHandlerArg);
     }
     else
@@ -204,7 +204,7 @@ DEFIRQ(SPI5_IRQHandler, SPI5_BASE)
 DEFIRQ(SPI6_IRQHandler, SPI6_BASE)
 #endif
 
-void ZSPI::init()
+void ZSPI::init_internal()
 {
     if (!needsInit)
         return;
@@ -244,15 +244,14 @@ void ZSPI::init()
     }
 
     auto pclkHz = enable_clock((uint32_t)spi.Instance);
-
-    for (int i = 0; baudprescaler[i]; i += 2)
+    for (int i = 0; baudprescaler[i + 1]; i += 2)
     {
         spi.Init.BaudRatePrescaler = baudprescaler[i];
-        if (pclkHz / baudprescaler[i + 1] <= freq)
+        if (pclkHz / baudprescaler[i + 1] <= freq) {
+            LOG("SPI at %d Hz", pclkHz / baudprescaler[i + 1]);
             break;
+        }
     }
-
-    spi.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
 
     auto res = HAL_SPI_Init(&spi);
     CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
@@ -273,7 +272,8 @@ ZSPI::ZSPI(Pin &mosi, Pin &miso, Pin &sclk) : codal::SPI()
 
     for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
     {
-        if (instances[i] == NULL) {
+        if (instances[i] == NULL)
+        {
             instances[i] = this;
             break;
         }
@@ -322,12 +322,17 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
 {
     int res;
 
-    init();
+    init_internal();
 
     LOG("SPI start %p/%d %p/%d D=%p", txBuffer, txSize, rxBuffer, rxSize, doneHandler);
 
     this->doneHandler = doneHandler;
     this->doneHandlerArg = arg;
+
+    // disable IRQ or else risk a race in HAL, between starting DMA request
+    // and getting the DMA-done IRQ
+    if (doneHandler)
+        target_disable_irq();
 
     if (txSize && rxSize)
     {
@@ -344,8 +349,11 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
     }
     else
     {
-        return 0; // nothing to do
+        res = HAL_OK;
     }
+
+    if (doneHandler)
+        target_enable_irq();
 
     CODAL_ASSERT(res == HAL_OK, DEVICE_SPI_ERROR);
 

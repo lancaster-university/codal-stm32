@@ -1,5 +1,6 @@
 #include "STMLowLevelTimer.h"
 #include "CodalDmesg.h"
+#include "pwmout_api.h"
 
 using namespace codal;
 
@@ -67,6 +68,8 @@ STMLowLevelTimer::STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn) : LowLevelT
     this->timer_instance = timer;
     this->irqN = irqn;
     memset(&TimHandle, 0, sizeof(TIM_HandleTypeDef));
+
+    disableIRQ(); // otherwise it might hit us while we're initializing
 
     DMESG("SYS CLK: %d %d", SystemCoreClock, (uint32_t)((SystemCoreClock / 1000000)));
 

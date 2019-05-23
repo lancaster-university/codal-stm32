@@ -34,13 +34,13 @@ namespace codal
 /**
  * Class definition for I2C service
  */
-class ZI2C : public codal::I2C
+class ZI2C : public codal::I2C, public codal::CodalComponent
 {
 protected:
     I2C_HandleTypeDef i2c;
     codal::Pin &sda, &scl;
     bool needsInit;
-    void init();
+    void init_internal();
 
 public:
     /**
@@ -115,6 +115,12 @@ public:
       * @return DEVICE_OK or DEVICE_I2C_ERROR if the the read request failed.
       */
     virtual int readRegister(uint16_t address, uint8_t reg, uint8_t *data, int length, bool repeated = true);
+
+
+    /**
+     * Puts the component in (or out of) sleep mode.
+     */
+    virtual int setSleep(bool sleepMode);
 };
 } // namespace codal
 

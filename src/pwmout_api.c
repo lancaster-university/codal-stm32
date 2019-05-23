@@ -39,6 +39,111 @@ static TIM_HandleTypeDef TimHandle;
 
 #define error MBED_ERROR
 
+void enable_tim_clk(uint32_t tim) {
+    // Enable TIM clock
+#if defined(TIM1_BASE)
+    if (tim == TIM1_BASE){
+        __HAL_RCC_TIM1_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM2_BASE)
+    if (tim == TIM2_BASE) {
+        __HAL_RCC_TIM2_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM3_BASE)
+    if (tim == TIM3_BASE) {
+        __HAL_RCC_TIM3_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM4_BASE)
+    if (tim == TIM4_BASE) {
+        __HAL_RCC_TIM4_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM5_BASE)
+    if (tim == TIM5_BASE) {
+        __HAL_RCC_TIM5_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM8_BASE)
+    if (tim == TIM8_BASE) {
+        __HAL_RCC_TIM8_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM9_BASE)
+    if (tim == TIM9_BASE) {
+        __HAL_RCC_TIM9_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM10_BASE)
+    if (tim == TIM10_BASE) {
+        __HAL_RCC_TIM10_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM11_BASE)
+    if (tim == TIM11_BASE) {
+        __HAL_RCC_TIM11_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM12_BASE)
+    if (tim == TIM12_BASE) {
+        __HAL_RCC_TIM12_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM13_BASE)
+    if (tim == TIM13_BASE) {
+        __HAL_RCC_TIM13_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM14_BASE)
+    if (tim == TIM14_BASE) {
+        __HAL_RCC_TIM14_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM15_BASE)
+    if (tim == TIM15_BASE) {
+        __HAL_RCC_TIM15_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM16_BASE)
+    if (tim == TIM16_BASE) {
+        __HAL_RCC_TIM16_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM17_BASE)
+    if (tim == TIM17_BASE) {
+        __HAL_RCC_TIM17_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM18_BASE)
+    if (tim == TIM18_BASE) {
+        __HAL_RCC_TIM18_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM19_BASE)
+    if (tim == TIM19_BASE) {
+        __HAL_RCC_TIM19_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM20_BASE)
+    if (tim == TIM20_BASE) {
+        __HAL_RCC_TIM20_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM21_BASE)
+    if (tim == TIM21_BASE) {
+        __HAL_RCC_TIM21_CLK_ENABLE();
+    }
+#endif
+#if defined(TIM22_BASE)
+    if (tim == TIM22_BASE) {
+        __HAL_RCC_TIM22_CLK_ENABLE();
+    }
+#endif
+
+}
+
 void pwmout_init(pwmout_t* obj, PinName pin)
 {
     // Get the peripheral name from the pin and assign it to the object
@@ -51,107 +156,8 @@ void pwmout_init(pwmout_t* obj, PinName pin)
     obj->channel = STM_PIN_CHANNEL(function);
     obj->inverted = STM_PIN_INVERTED(function);
 
-    // Enable TIM clock
-#if defined(TIM1_BASE)
-    if (obj->pwm == TIM1_BASE){
-        __HAL_RCC_TIM1_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM2_BASE)
-    if (obj->pwm == TIM2_BASE) {
-        __HAL_RCC_TIM2_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM3_BASE)
-    if (obj->pwm == TIM3_BASE) {
-        __HAL_RCC_TIM3_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM4_BASE)
-    if (obj->pwm == TIM4_BASE) {
-        __HAL_RCC_TIM4_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM5_BASE)
-    if (obj->pwm == TIM5_BASE) {
-        __HAL_RCC_TIM5_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM8_BASE)
-    if (obj->pwm == TIM8_BASE) {
-        __HAL_RCC_TIM8_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM9_BASE)
-    if (obj->pwm == TIM9_BASE) {
-        __HAL_RCC_TIM9_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM10_BASE)
-    if (obj->pwm == TIM10_BASE) {
-        __HAL_RCC_TIM10_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM11_BASE)
-    if (obj->pwm == TIM11_BASE) {
-        __HAL_RCC_TIM11_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM12_BASE)
-    if (obj->pwm == TIM12_BASE) {
-        __HAL_RCC_TIM12_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM13_BASE)
-    if (obj->pwm == TIM13_BASE) {
-        __HAL_RCC_TIM13_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM14_BASE)
-    if (obj->pwm == TIM14_BASE) {
-        __HAL_RCC_TIM14_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM15_BASE)
-    if (obj->pwm == TIM15_BASE) {
-        __HAL_RCC_TIM15_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM16_BASE)
-    if (obj->pwm == TIM16_BASE) {
-        __HAL_RCC_TIM16_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM17_BASE)
-    if (obj->pwm == TIM17_BASE) {
-        __HAL_RCC_TIM17_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM18_BASE)
-    if (obj->pwm == TIM18_BASE) {
-        __HAL_RCC_TIM18_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM19_BASE)
-    if (obj->pwm == TIM19_BASE) {
-        __HAL_RCC_TIM19_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM20_BASE)
-    if (obj->pwm == TIM20_BASE) {
-        __HAL_RCC_TIM20_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM21_BASE)
-    if (obj->pwm == TIM21_BASE) {
-        __HAL_RCC_TIM21_CLK_ENABLE();
-    }
-#endif
-#if defined(TIM22_BASE)
-    if (obj->pwm == TIM22_BASE) {
-        __HAL_RCC_TIM22_CLK_ENABLE();
-    }
-#endif
+    enable_tim_clk(obj->pwm);
+
     // Configure GPIO
     pinmap_pinout(pin, PinMap_PWM);
 

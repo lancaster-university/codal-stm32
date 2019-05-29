@@ -75,7 +75,7 @@ uint32_t codal_setup_pin(Pin *p, uint32_t prev, const PinMap *map)
     uint32_t tmp = pinmap_peripheral(pin, map);
     pin_function(pin, pinmap_function(pin, map));
     // pin_mode(pin, PullNone);
-    CODAL_ASSERT(!prev || prev == tmp);
+    CODAL_ASSERT(!prev || prev == tmp, DEVICE_HARDWARE_CONFIGURATION_ERROR);
     return tmp;
 }
 
@@ -85,39 +85,45 @@ static int enable_clock(uint32_t instance)
     {
     case SPI1_BASE:
         __HAL_RCC_SPI1_CLK_ENABLE();
+        NVIC_SetPriority(SPI1_IRQn, 2);
         NVIC_EnableIRQ(SPI1_IRQn);
         return HAL_RCC_GetPCLK2Freq();
     case SPI2_BASE:
         __HAL_RCC_SPI2_CLK_ENABLE();
+        NVIC_SetPriority(SPI2_IRQn, 2);
         NVIC_EnableIRQ(SPI2_IRQn);
         return HAL_RCC_GetPCLK1Freq();
 #ifdef SPI3_BASE
     case SPI3_BASE:
         __HAL_RCC_SPI3_CLK_ENABLE();
+        NVIC_SetPriority(SPI3_IRQn, 2);
         NVIC_EnableIRQ(SPI3_IRQn);
         return HAL_RCC_GetPCLK1Freq();
 #endif
 #ifdef SPI4_BASE
     case SPI4_BASE:
         __HAL_RCC_SPI4_CLK_ENABLE();
+        NVIC_SetPriority(SPI4_IRQn, 2);
         NVIC_EnableIRQ(SPI4_IRQn);
         return HAL_RCC_GetPCLK2Freq();
 #endif
 #ifdef SPI5_BASE
     case SPI5_BASE:
         __HAL_RCC_SPI5_CLK_ENABLE();
+        NVIC_SetPriority(SPI5_IRQn, 2);
         NVIC_EnableIRQ(SPI5_IRQn);
         return HAL_RCC_GetPCLK2Freq();
 #endif
 #ifdef SPI6_BASE
     case SPI6_BASE:
         __HAL_RCC_SPI6_CLK_ENABLE();
+        NVIC_SetPriority(SPI6_IRQn, 2);
         NVIC_EnableIRQ(SPI6_IRQn);
         return HAL_RCC_GetPCLK2Freq();
 #endif
 
     default:
-        CODAL_ASSERT(0);
+        CODAL_ASSERT(0, DEVICE_HARDWARE_CONFIGURATION_ERROR);
         return 0;
     }
     return 0;
@@ -248,7 +254,7 @@ void ZSPI::init_internal()
     }
 
     auto res = HAL_SPI_Init(&spi);
-    CODAL_ASSERT(res == HAL_OK);
+    CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 }
 
 ZSPI::ZSPI(Pin &mosi, Pin &miso, Pin &sclk) : codal::SPI()
@@ -287,7 +293,7 @@ int ZSPI::setMode(int mode, int bits)
     spi.Init.CLKPolarity = mode & 2 ? SPI_POLARITY_HIGH : SPI_POLARITY_LOW;
     needsInit = true;
 
-    CODAL_ASSERT(bits == 8);
+    CODAL_ASSERT(bits == 8, DEVICE_SPI_ERROR);
 
     return DEVICE_OK;
 }
@@ -330,7 +336,7 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
 
     if (txSize && rxSize)
     {
-        CODAL_ASSERT(txSize == rxSize); // we could support this if needed
+        CODAL_ASSERT(txSize == rxSize, DEVICE_SPI_ERROR); // we could support this if needed
         res = HAL_SPI_TransmitReceive_DMA(&spi, (uint8_t *)txBuffer, rxBuffer, txSize);
     }
     else if (txSize)
@@ -349,8 +355,7 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
     if (doneHandler)
         target_enable_irq();
 
-    CODAL_ASSERT(res == HAL_OK);
-
+    CODAL_ASSERT(res == HAL_OK, DEVICE_SPI_ERROR);
     return 0;
 }
 

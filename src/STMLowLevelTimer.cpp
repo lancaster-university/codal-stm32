@@ -101,9 +101,14 @@ STMLowLevelTimer::STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn) : LowLevelT
     instances[instance_index] = this;
 }
 
+int STMLowLevelTimer::setIRQPriority(int priority)
+{
+    NVIC_SetPriority((IRQn_Type)this->irqN, priority);
+    return DEVICE_OK;
+}
+
 int STMLowLevelTimer::enable()
 {
-    NVIC_SetPriority((IRQn_Type)this->irqN, 2);
     NVIC_ClearPendingIRQ((IRQn_Type)this->irqN);
     enableIRQ();
     HAL_TIM_OC_Start_IT(&TimHandle, TIM_CHANNEL_1);
@@ -173,6 +178,7 @@ int STMLowLevelTimer::setCompare(uint8_t channel, uint32_t value)
     }
 
     __HAL_TIM_DISABLE_IT(&TimHandle, hal_int);
+    __HAL_TIM_CLEAR_IT(&TimHandle, hal_int);
     __HAL_TIM_SET_COMPARE(&TimHandle, hal_channel, value);
     __HAL_TIM_ENABLE_IT(&TimHandle, hal_int);
 
@@ -236,10 +242,7 @@ int STMLowLevelTimer::clearCompare(uint8_t channel)
 
 uint32_t STMLowLevelTimer::captureCounter()
 {
-    uint32_t elapsed = 0;
-
-    elapsed = __HAL_TIM_GET_COUNTER(&TimHandle);
-    return elapsed;
+    return __HAL_TIM_GET_COUNTER(&TimHandle);
 }
 
 int STMLowLevelTimer::setClockSpeed(uint32_t speedKHz)

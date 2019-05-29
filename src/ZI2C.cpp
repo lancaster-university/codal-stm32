@@ -24,6 +24,7 @@ DEALINGS IN THE SOFTWARE.
 */
 
 #include "CodalConfig.h"
+#include "CodalCompat.h"
 #include "ZI2C.h"
 #include "ZPin.h"
 #include "ErrorNo.h"
@@ -71,7 +72,7 @@ void ZI2C::init_internal()
     }
 
     int res = HAL_I2C_Init(&i2c);
-    CODAL_ASSERT(res == HAL_OK);
+    CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 }
 
 ZI2C::ZI2C(codal::Pin &sda, codal::Pin &scl) : codal::I2C(sda, scl), sda(sda), scl(scl)
@@ -104,7 +105,7 @@ int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
     if (data == NULL || len <= 0)
         return DEVICE_INVALID_PARAMETER; // Send a start condition
 
-    CODAL_ASSERT(!repeated);
+    CODAL_ASSERT(!repeated, DEVICE_I2C_ERROR);
 
     init_internal();
     // timeout in ms - we use infinity
@@ -121,7 +122,7 @@ int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
     if (data == NULL || len <= 0)
         return DEVICE_INVALID_PARAMETER;
 
-    CODAL_ASSERT(!repeated);
+    CODAL_ASSERT(!repeated, DEVICE_I2C_ERROR);
 
     init_internal();
     auto res = HAL_I2C_Master_Receive(&i2c, address, data, len, I2C_TIMEOUT);
@@ -134,8 +135,7 @@ int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
 
 int ZI2C::readRegister(uint16_t address, uint8_t reg, uint8_t *data, int length, bool repeated)
 {
-    CODAL_ASSERT(repeated);
-
+    CODAL_ASSERT(repeated, DEVICE_I2C_ERROR);
     init_internal();
     auto res = HAL_I2C_Mem_Read(&i2c, address, reg, I2C_MEMADD_SIZE_8BIT, data, length, I2C_TIMEOUT);
 
@@ -157,6 +157,7 @@ int ZI2C::setSleep(bool sleepMode)
         ((ZPin*)&scl)->setDigitalValue(1);
     }
     #endif
+
     return DEVICE_OK;
 }
 

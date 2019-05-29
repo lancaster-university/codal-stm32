@@ -6,6 +6,7 @@
 #include "pinmap.h"
 #include "PeripheralPins.h"
 #include "CodalFiber.h"
+#include "ErrorNo.h"
 
 using namespace codal;
 
@@ -33,20 +34,23 @@ static int enable_clock(uint32_t instance)
     {
     case USART1_BASE:
         __HAL_RCC_USART1_CLK_ENABLE();
+        NVIC_SetPriority(USART1_IRQn, 2);
         NVIC_EnableIRQ(USART1_IRQn);
         return HAL_RCC_GetPCLK2Freq();
     case USART2_BASE:
         __HAL_RCC_USART2_CLK_ENABLE();
+        NVIC_SetPriority(USART2_IRQn, 2);
         NVIC_EnableIRQ(USART2_IRQn);
         return HAL_RCC_GetPCLK1Freq();
 #ifdef USART6_BASE
     case USART6_BASE:
         __HAL_RCC_USART6_CLK_ENABLE();
+        NVIC_SetPriority(USART6_IRQn, 2);
         NVIC_EnableIRQ(USART6_IRQn);
         return HAL_RCC_GetPCLK2Freq();
 #endif
     default:
-        CODAL_ASSERT(0);
+        CODAL_ASSERT(0, DEVICE_HARDWARE_CONFIGURATION_ERROR);
         return 0;
     }
     return 0;
@@ -54,36 +58,40 @@ static int enable_clock(uint32_t instance)
 
 void ZSingleWireSerial::_complete(uint32_t instance, uint32_t mode)
 {
+    uint8_t err = 0;
     for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
     {
         if (instances[i] && (uint32_t)instances[i]->uart.Instance == instance)
         {
-            if (mode == SWS_EVT_ERROR)
+            switch (mode)
             {
-                uint8_t err = HAL_UART_GetError(&instances[i]->uart);
-                codal_dmesg("ERROR %d", HAL_UART_GetError(&instances[i]->uart));
-                if (err == HAL_UART_ERROR_FE)
-                {
-                    // a uart error disable any previously configured DMA transfers, we will always get a framing error...
-                    // quietly restart...
-                    HAL_UART_Receive_DMA(&instances[i]->uart, instances[i]->buf, instances[i]->bufLen);
-                    return;
-                }
-                else
-                    HAL_UART_Abort(&instances[i]->uart);
+                case SWS_EVT_DATA_RECEIVED:
+                case SWS_EVT_DATA_SENT:
+                    if (instances[i]->cb)
+                        instances[i]->cb(mode);
+                    break;
+
+                case SWS_EVT_ERROR:
+                    err = HAL_UART_GetError(&instances[i]->uart);
+
+                    // DMESG("HALE %d", err);
+                    if (err == HAL_UART_ERROR_FE)
+                        // a uart error disable any previously configured DMA transfers, we will always get a framing error...
+                        // quietly restart...
+                        HAL_UART_Receive_DMA(&instances[i]->uart, instances[i]->buf, instances[i]->bufLen);
+                    else
+                    {
+                        if (instances[i]->cb)
+                            instances[i]->cb(mode);
+                        else
+                            HAL_UART_Abort(&instances[i]->uart);
+                    }
+                    break;
+
+                default:
+                    HAL_UART_IRQHandler(&instances[i]->uart);
+                    break;
             }
-
-            if (mode == 0)
-                HAL_UART_IRQHandler(&instances[i]->uart);
-            else
-            {
-                Event evt(instances[i]->id, mode, CREATE_ONLY);
-
-                if (instances[i]->cb)
-                    instances[i]->cb->fire(evt);
-            }
-
-            break;
         }
     }
 }
@@ -129,9 +137,11 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
     enable_clock((uint32_t)uart.Instance);
 
     dma_init((uint32_t)uart.Instance, DMA_RX, &hdma_rx, 0);
+    dma_set_irq_priority((uint32_t)uart.Instance, DMA_RX, 0);
     __HAL_LINKDMA(&uart, hdmarx, hdma_rx);
 
     dma_init((uint32_t)uart.Instance, DMA_TX, &hdma_tx, 0);
+    dma_set_irq_priority((uint32_t)uart.Instance, DMA_TX, 0);
     __HAL_LINKDMA(&uart, hdmatx, hdma_tx);
 
     // set some reasonable defaults
@@ -209,8 +219,11 @@ int ZSingleWireSerial::configureRx(int enable)
         uint8_t pin = (uint8_t)p.name;
         pin_function(pin, pinmap_function(pin, PinMap_UART_TX));
         pin_mode(pin, PullNone);
+        // 5 us
         uart.Init.Mode = UART_MODE_RX;
+
         HAL_HalfDuplex_Init(&uart);
+        // additional 9 us
         status |= RX_CONFIGURED;
     }
     else if (status & RX_CONFIGURED)
@@ -279,7 +292,7 @@ int ZSingleWireSerial::sendDMA(uint8_t* data, int len)
 
     int res = HAL_UART_Transmit_DMA(&uart, data, len);
 
-    CODAL_ASSERT(res == HAL_OK);
+    CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     return DEVICE_OK;
 }
@@ -294,7 +307,8 @@ int ZSingleWireSerial::receiveDMA(uint8_t* data, int len)
 
     int res = HAL_UART_Receive_DMA(&uart, data, len);
 
-    CODAL_ASSERT(res == HAL_OK);
+    // DMESG("RES %d",res);
+    CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     return DEVICE_OK;
 }
@@ -306,6 +320,22 @@ int ZSingleWireSerial::abortDMA()
 
     HAL_UART_Abort(&uart);
     return DEVICE_OK;
+}
+
+int ZSingleWireSerial::getBytesReceived()
+{
+    if (!(status & RX_CONFIGURED))
+        return DEVICE_INVALID_PARAMETER;
+
+    return hdma_rx.Instance->NDTR;
+}
+
+int ZSingleWireSerial::getBytesTransmitted()
+{
+    if (!(status & TX_CONFIGURED))
+        return DEVICE_INVALID_PARAMETER;
+
+    return hdma_tx.Instance->NDTR;
 }
 
 int ZSingleWireSerial::sendBreak()

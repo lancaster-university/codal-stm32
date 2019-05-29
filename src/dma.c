@@ -1,5 +1,6 @@
 #include "dma.h"
 #include "CodalDmesg.h"
+#include "ErrorNo.h"
 
 #ifdef STM32F4
 
@@ -142,6 +143,20 @@ DEFIRQ(DMA2_Stream5_IRQHandler, NUM_STREAMS + 5)
 DEFIRQ(DMA2_Stream6_IRQHandler, NUM_STREAMS + 6)
 DEFIRQ(DMA2_Stream7_IRQHandler, NUM_STREAMS + 7)
 
+int lookup_dma(uint32_t peripheral, uint8_t rxdx)
+{
+    int id = -1;
+    const DmaMap *map;
+
+    for (map = TheDmaMap; map->peripheral; map++)
+    {
+        if (map->peripheral == peripheral && map->rxdx == rxdx)
+            id = (map->dma - 1) * NUM_STREAMS + map->stream;
+    }
+
+    return id;
+}
+
 int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flags)
 {
     memset(obj, 0, sizeof(*obj));
@@ -154,8 +169,8 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
         if ((map->peripheral == peripheral && map->rxdx == rxdx) ||
             (peripheral == 0 && map->dma == 2))
         {
-            CODAL_ASSERT(map->dma <= NUM_DMA);
-            CODAL_ASSERT(map->stream < NUM_STREAMS);
+            CODAL_ASSERT(map->dma <= NUM_DMA, DEVICE_HARDWARE_CONFIGURATION_ERROR);
+            CODAL_ASSERT(map->stream < NUM_STREAMS, DEVICE_HARDWARE_CONFIGURATION_ERROR);
             id = (map->dma - 1) * NUM_STREAMS + map->stream;
             if (handles[id] == NULL)
             {
@@ -165,7 +180,7 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
         }
     }
 
-    CODAL_ASSERT(map->peripheral);
+    CODAL_ASSERT(map->peripheral, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     obj->Instance = streams[id].instance;
 
@@ -199,14 +214,26 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
         __HAL_RCC_DMA2_CLK_ENABLE();
 
     int res = HAL_DMA_Init(obj);
-    CODAL_ASSERT(res == HAL_OK);
+    CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     LOG("DMA init %p irq=%d ch=%d str=%d", obj->Instance, streams[id].irqn, map->channel,
         map->stream);
 
+    NVIC_SetPriority(streams[id].irqn, 1);
     NVIC_EnableIRQ(streams[id].irqn);
 
     return 0;
+}
+
+void dma_set_irq_priority(uint32_t peripheral, uint8_t rxdx, int priority)
+{
+    int id = lookup_dma(peripheral, rxdx);
+
+    CODAL_ASSERT(id != -1, DEVICE_HARDWARE_CONFIGURATION_ERROR);
+
+    NVIC_DisableIRQ(streams[id].irqn);
+    NVIC_SetPriority(streams[id].irqn, priority);
+    NVIC_EnableIRQ(streams[id].irqn);
 }
 
 #endif

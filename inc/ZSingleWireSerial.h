@@ -32,7 +32,7 @@ namespace codal
 
         static void _complete(uint32_t instance, uint32_t mode);
 
-        JDPkt* currentBuffer;
+        JDPacket* currentBuffer;
         uint32_t currentBufferIndex;
 
         // only works with a TX uart pin on STM.
@@ -47,6 +47,9 @@ namespace codal
         virtual int sendDMA(uint8_t* data, int len);
         virtual int receiveDMA(uint8_t* data, int len);
         virtual int abortDMA();
+
+        virtual int getBytesReceived() override;
+        virtual int getBytesTransmitted() override;
 
         virtual int setBaud(uint32_t baud);
         virtual uint32_t getBaud();

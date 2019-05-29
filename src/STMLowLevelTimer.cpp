@@ -1,5 +1,6 @@
 #include "STMLowLevelTimer.h"
 #include "CodalDmesg.h"
+#include "pwmout_api.h"
 
 using namespace codal;
 
@@ -64,10 +65,14 @@ extern "C" void TIM5_IRQHandler()
 
 STMLowLevelTimer::STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn) : LowLevelTimer(4)
 {
+    enable_tim_clk((uint32_t)timer);
+
     this->timer_instance = timer;
     this->irqN = irqn;
     memset(&TimHandle, 0, sizeof(TIM_HandleTypeDef));
     disableIRQ();
+
+    disableIRQ(); // otherwise it might hit us while we're initializing
 
     DMESG("SYS CLK: %d %d", SystemCoreClock, (uint32_t)((SystemCoreClock / 1000000)));
 
@@ -76,51 +81,35 @@ STMLowLevelTimer::STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn) : LowLevelT
     TimHandle.Init.Prescaler = (uint32_t)((SystemCoreClock / 1000000)-1);
     TimHandle.Init.ClockDivision = 0;
     TimHandle.Init.CounterMode = TIM_COUNTERMODE_UP;
+    HAL_TIM_OC_Init(&TimHandle);
+
+    // all timers run in at least 16 bit mode, so lets use it as a default.
+    setBitMode(BitMode16);
 
     uint8_t instance_index = 0;
 
-    if (timer == TIM1)
-    {
-        setBitMode(BitMode16);
-        __HAL_RCC_TIM1_CLK_ENABLE();
-    }
-    else if (timer == TIM2)
-    {
+    if (timer == TIM2)
         instance_index = 1;
-        setBitMode(BitMode16);
-        __HAL_RCC_TIM2_CLK_ENABLE();
-    }
-    else if (timer == TIM3)
-    {
+    if (timer == TIM3)
         instance_index = 2;
-        setBitMode(BitMode16);
-        __HAL_RCC_TIM3_CLK_ENABLE();
-    }
-    else if (timer == TIM4)
-    {
+    if (timer == TIM4)
         instance_index = 3;
-        setBitMode(BitMode16);
-        __HAL_RCC_TIM4_CLK_ENABLE();
-    }
 #ifdef TIM5
-    else if (timer == TIM5)
-    {
+    if (timer == TIM5)
         instance_index = 4;
-        setBitMode(BitMode32);
-        __HAL_RCC_TIM5_CLK_ENABLE();
-    }
 #endif
-    else
-        // other timers aren't supported at present.
-        target_panic(DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     instances[instance_index] = this;
-    HAL_TIM_OC_Init(&TimHandle);
+}
+
+int STMLowLevelTimer::setIRQPriority(int priority)
+{
+    NVIC_SetPriority((IRQn_Type)this->irqN, priority);
+    return DEVICE_OK;
 }
 
 int STMLowLevelTimer::enable()
 {
-    NVIC_SetPriority((IRQn_Type)this->irqN, 2);
     NVIC_ClearPendingIRQ((IRQn_Type)this->irqN);
     enableIRQ();
     HAL_TIM_OC_Start_IT(&TimHandle, TIM_CHANNEL_1);

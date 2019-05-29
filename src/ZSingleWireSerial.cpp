@@ -35,10 +35,12 @@ static int enable_clock(uint32_t instance)
     {
     case USART1_BASE:
         __HAL_RCC_USART1_CLK_ENABLE();
+        NVIC_SetPriority(USART1_IRQn, 2);
         NVIC_EnableIRQ(USART1_IRQn);
         return HAL_RCC_GetPCLK2Freq();
     case USART2_BASE:
         __HAL_RCC_USART2_CLK_ENABLE();
+        NVIC_SetPriority(USART2_IRQn, 2);
         NVIC_EnableIRQ(USART2_IRQn);
         return HAL_RCC_GetPCLK1Freq();
     case USART3_BASE:
@@ -49,6 +51,7 @@ static int enable_clock(uint32_t instance)
 #ifdef USART6_BASE
     case USART6_BASE:
         __HAL_RCC_USART6_CLK_ENABLE();
+        NVIC_SetPriority(USART6_IRQn, 2);
         NVIC_EnableIRQ(USART6_IRQn);
         return HAL_RCC_GetPCLK2Freq();
 #endif
@@ -61,37 +64,40 @@ static int enable_clock(uint32_t instance)
 
 void ZSingleWireSerial::_complete(uint32_t instance, uint32_t mode)
 {
-    DMESG("COMP");
+    uint8_t err = 0;
     for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
     {
         if (instances[i] && (uint32_t)instances[i]->uart.Instance == instance)
         {
-            if (mode == SWS_EVT_ERROR)
+            switch (mode)
             {
-                uint8_t err = HAL_UART_GetError(&instances[i]->uart);
-                DMESG("HALE %d", err);
-                // if (err == HAL_UART_ERROR_FE)
-                // {
-                //     // a uart error disable any previously configured DMA transfers, we will always get a framing error...
-                //     // quietly restart...
-                //     HAL_UART_Receive_DMA(&instances[i]->uart, instances[i]->buf, instances[i]->bufLen);
-                //     return;
-                // }
-                // else
-                    HAL_UART_Abort(&instances[i]->uart);
+                case SWS_EVT_DATA_RECEIVED:
+                case SWS_EVT_DATA_SENT:
+                    if (instances[i]->cb)
+                        instances[i]->cb(mode);
+                    break;
+
+                case SWS_EVT_ERROR:
+                    err = HAL_UART_GetError(&instances[i]->uart);
+
+                    // DMESG("HALE %d", err);
+                    if (err == HAL_UART_ERROR_FE)
+                        // a uart error disable any previously configured DMA transfers, we will always get a framing error...
+                        // quietly restart...
+                        HAL_UART_Receive_DMA(&instances[i]->uart, instances[i]->buf, instances[i]->bufLen);
+                    else
+                    {
+                        if (instances[i]->cb)
+                            instances[i]->cb(mode);
+                        else
+                            HAL_UART_Abort(&instances[i]->uart);
+                    }
+                    break;
+
+                default:
+                    HAL_UART_IRQHandler(&instances[i]->uart);
+                    break;
             }
-
-            if (mode == 0)
-                HAL_UART_IRQHandler(&instances[i]->uart);
-            else
-            {
-                Event evt(instances[i]->id, mode, CREATE_ONLY);
-
-                if (instances[i]->cb)
-                    instances[i]->cb->fire(evt);
-            }
-
-            break;
         }
     }
 }
@@ -138,9 +144,11 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
     enable_clock((uint32_t)uart.Instance);
 
     dma_init((uint32_t)uart.Instance, DMA_RX, &hdma_rx, 0);
+    dma_set_irq_priority((uint32_t)uart.Instance, DMA_RX, 0);
     __HAL_LINKDMA(&uart, hdmarx, hdma_rx);
 
     dma_init((uint32_t)uart.Instance, DMA_TX, &hdma_tx, 0);
+    dma_set_irq_priority((uint32_t)uart.Instance, DMA_TX, 0);
     __HAL_LINKDMA(&uart, hdmatx, hdma_tx);
 
     // set some reasonable defaults

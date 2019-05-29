@@ -136,7 +136,6 @@ int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
 int ZI2C::readRegister(uint16_t address, uint8_t reg, uint8_t *data, int length, bool repeated)
 {
     CODAL_ASSERT(repeated, DEVICE_I2C_ERROR);
-
     init_internal();
     auto res = HAL_I2C_Mem_Read(&i2c, address, reg, I2C_MEMADD_SIZE_8BIT, data, length, I2C_TIMEOUT);
 
@@ -158,6 +157,8 @@ int ZI2C::setSleep(bool sleepMode)
         ((ZPin*)&scl)->setDigitalValue(1);
     }
     #endif
+
+    return DEVICE_OK;
 }
 
 } // namespace codal

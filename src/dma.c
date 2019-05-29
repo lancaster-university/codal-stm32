@@ -166,7 +166,8 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
 
     for (map = TheDmaMap; map->peripheral; map++)
     {
-        if (map->peripheral == peripheral && map->rxdx == rxdx)
+        if ((map->peripheral == peripheral && map->rxdx == rxdx) ||
+            (peripheral == 0 && map->dma == 2))
         {
             CODAL_ASSERT(map->dma <= NUM_DMA, DEVICE_HARDWARE_CONFIGURATION_ERROR);
             CODAL_ASSERT(map->stream < NUM_STREAMS, DEVICE_HARDWARE_CONFIGURATION_ERROR);
@@ -184,8 +185,10 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
     obj->Instance = streams[id].instance;
 
     obj->Init.Channel = channels[map->channel];
-    obj->Init.Direction = rxdx == DMA_RX ? DMA_PERIPH_TO_MEMORY : DMA_MEMORY_TO_PERIPH;
-    obj->Init.PeriphInc = DMA_PINC_DISABLE;
+    obj->Init.Direction = peripheral == 0
+                              ? DMA_MEMORY_TO_MEMORY
+                              : rxdx == DMA_RX ? DMA_PERIPH_TO_MEMORY : DMA_MEMORY_TO_PERIPH;
+    obj->Init.PeriphInc = peripheral == 0 ? DMA_PINC_ENABLE : DMA_PINC_DISABLE;
     obj->Init.MemInc = DMA_MINC_ENABLE;
     if (flags & DMA_FLAG_2BYTE)
     {

@@ -356,7 +356,6 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
         target_enable_irq();
 
     CODAL_ASSERT(res == HAL_OK, DEVICE_SPI_ERROR);
-
     return 0;
 }
 

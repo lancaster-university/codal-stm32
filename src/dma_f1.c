@@ -62,7 +62,7 @@ MBED_WEAK const DmaMap TheDmaMap[] = //
      {UART4_BASE, DMA_RX, 13},
      {UART4_BASE, DMA_TX, 15},
      {DAC_BASE, DMA_TX, 13},
-#endif     
+#endif
 
      // The end
      {0, 0, 0}};
@@ -96,6 +96,23 @@ void DMA2_Channel4_5_IRQHandler()
 {
     irq_callback(14);
     irq_callback(15);
+}
+
+int lookup_dma(uint32_t peripheral, uint8_t rxdx)
+{
+    int id = -1;
+    const DmaMap *map;
+
+    for (map = TheDmaMap; map->peripheral; map++)
+    {
+        if (map->peripheral == peripheral && map->rxdx == rxdx)
+        {
+            id = HANDLE_IDX(map->channel);
+            break;
+        }
+    }
+
+    return id;
 }
 
 int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flags)
@@ -159,6 +176,17 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
     NVIC_EnableIRQ(streams[id].irqn);
 
     return 0;
+}
+
+void dma_set_irq_priority(uint32_t peripheral, uint8_t rxdx, int priority)
+{
+    int id = lookup_dma(peripheral, rxdx);
+
+    CODAL_ASSERT(id != -1, DEVICE_HARDWARE_CONFIGURATION_ERROR);
+
+    NVIC_DisableIRQ(streams[id].irqn);
+    NVIC_SetPriority(streams[id].irqn, priority);
+    NVIC_EnableIRQ(streams[id].irqn);
 }
 
 #endif

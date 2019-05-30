@@ -163,8 +163,6 @@ void pin_function(PinName pin, int data)
     uint32_t ll_pin  = ll_pin_defines[STM_PIN(pin)];
     uint32_t ll_mode = 0;
 
-    DMESG("PINF mode %d af %d port %d",mode, afnum, port);
-
     // Enable GPIO clock
     GPIO_TypeDef *gpio = Set_GPIO_Clock(port);
 
@@ -214,16 +212,13 @@ if (mode == STM_PIN_OUTPUT) {
     /*  For now by default use Speed HIGH for output or alt modes */
     if ((mode == STM_PIN_OUTPUT) ||(mode == STM_PIN_ALTERNATE)) {
     if (STM_PIN_OD(data)) {
-        DMESG("OPENDRAIN");
             LL_GPIO_SetPinOutputType(gpio, ll_pin, LL_GPIO_OUTPUT_OPENDRAIN);
     } else {
-        DMESG("pushpull");
             LL_GPIO_SetPinOutputType(gpio, ll_pin, LL_GPIO_OUTPUT_PUSHPULL);
     }
     }
 
-    DMESG("PULLUP: %d", STM_PIN_PUPD(data));
-    // stm_pin_PullConfig(gpio, ll_pin, STM_PIN_PUPD(data));
+    stm_pin_PullConfig(gpio, ll_pin, STM_PIN_PUPD(data));
 
     stm_pin_DisconnectDebug(pin);
 }

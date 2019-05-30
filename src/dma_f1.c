@@ -72,7 +72,6 @@ static DMA_HandleTypeDef *handles[7 + 5];
 #define HANDLE_IDX(id) (id < 10 ? id - 1 : id - 4)
 static void irq_callback(int id)
 {
-    LOG("DMA irq %d", id);
     id = HANDLE_IDX(id);
     if (handles[id])
         HAL_DMA_IRQHandler(handles[id]);

@@ -1,7 +1,7 @@
 // redefine MCU type as one with the FSMC peripheral
 #ifdef STM32F401xE
 #undef STM32F401xE
-#define STM32F412Zx
+#define STM32F412Rx
 #endif
 
 #include "FSMCIO.h"
@@ -29,7 +29,7 @@ FSMCIO::FSMCIO(uint32_t flags, PinNumber wr, PinNumber rd)
 
     gpio_init_structure.Mode = GPIO_MODE_AF_PP;
     gpio_init_structure.Pull = GPIO_PULLUP;
-    gpio_init_structure.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    gpio_init_structure.Speed = GPIO_SPEED_FREQ_HIGH;
     gpio_init_structure.Alternate = GPIO_AF12_FSMC;
 
     __HAL_RCC_FSMC_CLK_ENABLE();
@@ -66,23 +66,28 @@ FSMCIO::FSMCIO(uint32_t flags, PinNumber wr, PinNumber rd)
         __HAL_RCC_GPIOC_CLK_ENABLE();
 
         gpio_init_structure.Pin = GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5;
-        HAL_GPIO_Init(GPIOA, &gpio_init_structure);
+        HAL_GPIO_Init(GPIOA, &gpio_init_structure); // AF12
 
-        gpio_init_structure.Pin = GPIO_PIN_14;
-        HAL_GPIO_Init(GPIOB, &gpio_init_structure);
-
-        gpio_init_structure.Pin = GPIO_PIN_6 | GPIO_PIN_11 | GPIO_PIN_12;
+        gpio_init_structure.Pin = 0;
         if (wr == PC_2)
             gpio_init_structure.Pin |= GPIO_PIN_2;
         if (rd == PC_5)
             gpio_init_structure.Pin |= GPIO_PIN_5;
-        HAL_GPIO_Init(GPIOC, &gpio_init_structure);
+        if (gpio_init_structure.Pin)
+            HAL_GPIO_Init(GPIOC, &gpio_init_structure); // AF12
+
+        gpio_init_structure.Alternate = GPIO_AF10_FMC;
+        gpio_init_structure.Pin = GPIO_PIN_6 | GPIO_PIN_11 | GPIO_PIN_12;
+        HAL_GPIO_Init(GPIOC, &gpio_init_structure); // AF10
+
+        gpio_init_structure.Pin = GPIO_PIN_14;
+        HAL_GPIO_Init(GPIOB, &gpio_init_structure); // AF10
 
         if (wr == PD_2)
         {
             __HAL_RCC_GPIOD_CLK_ENABLE();
             gpio_init_structure.Pin = GPIO_PIN_2;
-            HAL_GPIO_Init(GPIOD, &gpio_init_structure);
+            HAL_GPIO_Init(GPIOD, &gpio_init_structure); // AF10
         }
     }
     else

@@ -4,6 +4,8 @@
 #define STM32F412Rx
 #endif
 
+#ifdef STM32F412Zx
+
 #include "FSMCIO.h"
 #include "dma.h"
 
@@ -140,3 +142,5 @@ void FSMCIO::startSend(const void *txBuffer, uint32_t txSize, PVoidCallback done
 }
 
 } // namespace codal
+
+#endif

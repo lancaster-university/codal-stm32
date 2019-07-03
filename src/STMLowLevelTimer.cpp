@@ -39,7 +39,8 @@ void timer_irq_handler(uint8_t index)
         __HAL_TIM_CLEAR_IT(timHandle, TIM_IT_CC4);
     }
 
-    instances[index]->timer_pointer(channel_bitmsk);
+    if (instances[index]->timer_pointer)
+        instances[index]->timer_pointer(channel_bitmsk);
 }
 
 extern "C" void TIM1_IRQHandler()
@@ -70,6 +71,7 @@ STMLowLevelTimer::STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn) : LowLevelT
     this->timer_instance = timer;
     this->irqN = irqn;
     memset(&TimHandle, 0, sizeof(TIM_HandleTypeDef));
+    disableIRQ();
 
     disableIRQ(); // otherwise it might hit us while we're initializing
 

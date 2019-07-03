@@ -55,7 +55,11 @@ int target_random(int max)
     device and in any context. These bits can never be altered by the user.
     The 96-bit unique device identifier can also be read in single bytes/half-words/words in different ways and then be concatenated using a custom algorithm.
 */
+#ifdef STM32F1
+#define STM32_UUID ((uint32_t *)0x1FFFF7E8)
+#else
 #define STM32_UUID ((uint32_t *)0x1FFF7A10)
+#endif
 uint64_t target_get_serial()
 {
     // uuid[1] is the wafer number plus the lot number, need to check the uniqueness of this...

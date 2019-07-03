@@ -30,6 +30,7 @@
 #include "pinmap.h"
 //#include "PortNames.h"
 #include "pin_device.h"
+#include "CodalDmesg.h"
 
 #define error MBED_ERROR
 

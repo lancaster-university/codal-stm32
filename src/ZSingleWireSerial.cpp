@@ -30,6 +30,7 @@ static ZSingleWireSerial *instances[4];
 
 static int enable_clock(uint32_t instance)
 {
+    DMESG("CLK EN");
     switch (instance)
     {
     case USART1_BASE:
@@ -41,6 +42,11 @@ static int enable_clock(uint32_t instance)
         __HAL_RCC_USART2_CLK_ENABLE();
         NVIC_SetPriority(USART2_IRQn, 2);
         NVIC_EnableIRQ(USART2_IRQn);
+        return HAL_RCC_GetPCLK1Freq();
+    case USART3_BASE:
+        __HAL_RCC_USART3_CLK_ENABLE();
+        DMESG("PCLK1 %d", HAL_RCC_GetPCLK1Freq());
+        NVIC_EnableIRQ(USART3_IRQn);
         return HAL_RCC_GetPCLK1Freq();
 #ifdef USART6_BASE
     case USART6_BASE:
@@ -116,6 +122,7 @@ extern "C" void HAL_UART_ErrorCallback(UART_HandleTypeDef *hspi)
 
 DEFIRQ(USART1_IRQHandler, USART1_BASE)
 DEFIRQ(USART2_IRQHandler, USART2_BASE)
+DEFIRQ(USART3_IRQHandler, USART3_BASE)
 #ifdef USART6_BASE
 DEFIRQ(USART6_IRQHandler, USART6_BASE)
 #endif
@@ -197,8 +204,9 @@ int ZSingleWireSerial::configureTx(int enable)
     if (enable && !(status & TX_CONFIGURED))
     {
         uint8_t pin = (uint8_t)p.name;
-        pin_mode(pin, PullNone);
+        // pin_mode(pin, PullNone);
         pin_function(pin, pinmap_function(pin, PinMap_UART_TX));
+        pin_mode(pin,PullUp);
         uart.Init.Mode = UART_MODE_TX;
         HAL_HalfDuplex_Init(&uart);
         status |= TX_CONFIGURED;
@@ -291,6 +299,7 @@ int ZSingleWireSerial::sendDMA(uint8_t* data, int len)
     this->bufLen = len;
 
     int res = HAL_UART_Transmit_DMA(&uart, data, len);
+    DMESG("TXDMA RES %d ",res);
 
     CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
@@ -326,8 +335,11 @@ int ZSingleWireSerial::getBytesReceived()
 {
     if (!(status & RX_CONFIGURED))
         return DEVICE_INVALID_PARAMETER;
-
+#ifdef STM32F1
+    return hdma_rx.Instance->CNDTR;
+#else
     return hdma_rx.Instance->NDTR;
+#endif
 }
 
 int ZSingleWireSerial::getBytesTransmitted()
@@ -335,7 +347,11 @@ int ZSingleWireSerial::getBytesTransmitted()
     if (!(status & TX_CONFIGURED))
         return DEVICE_INVALID_PARAMETER;
 
+#ifdef STM32F1
+    return hdma_tx.Instance->CNDTR;
+#else
     return hdma_tx.Instance->NDTR;
+#endif
 }
 
 int ZSingleWireSerial::sendBreak()

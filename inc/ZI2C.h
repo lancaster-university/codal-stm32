@@ -40,7 +40,10 @@ protected:
     I2C_HandleTypeDef i2c;
     codal::Pin &sda, &scl;
     bool needsInit;
+    int numErrors;
     void init_internal();
+    int reset();
+    int wrapStatus(int halStatus);
 
 public:
     /**

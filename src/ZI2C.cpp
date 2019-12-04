@@ -30,6 +30,8 @@ DEALINGS IN THE SOFTWARE.
 #include "ErrorNo.h"
 #include "pinmap.h"
 #include "PeripheralPins.h"
+#include "CodalDmesg.h"
+#include "codal_target_hal.h"
 
 #ifdef STM32F1
 #include "stm32f1xx_ll_i2c.h"
@@ -89,6 +91,7 @@ ZI2C::ZI2C(codal::Pin &sda, codal::Pin &scl) : codal::I2C(sda, scl), sda(sda), s
     i2c.Init.OwnAddress2 = 0xFE;
 
     needsInit = true;
+    numErrors = 0;
 }
 
 int ZI2C::setFrequency(uint32_t frequency)
@@ -108,7 +111,7 @@ int ZI2C::write(uint16_t address, uint8_t *data, int len, bool repeated)
     CODAL_ASSERT(!repeated, DEVICE_I2C_ERROR);
 
     init_internal();
-    // timeout in ms - we use infinity
+    // timeout in ms - we use 1s
     auto res = HAL_I2C_Master_Transmit(&i2c, address, data, len, I2C_TIMEOUT);
 
     if (res == HAL_OK)
@@ -127,10 +130,7 @@ int ZI2C::read(uint16_t address, uint8_t *data, int len, bool repeated)
     init_internal();
     auto res = HAL_I2C_Master_Receive(&i2c, address, data, len, I2C_TIMEOUT);
 
-    if (res == HAL_OK)
-        return DEVICE_OK;
-    else
-        return DEVICE_I2C_ERROR;
+    return wrapStatus(res);
 }
 
 int ZI2C::readRegister(uint16_t address, uint8_t reg, uint8_t *data, int length, bool repeated)
@@ -139,10 +139,7 @@ int ZI2C::readRegister(uint16_t address, uint8_t reg, uint8_t *data, int length,
     init_internal();
     auto res = HAL_I2C_Mem_Read(&i2c, address, reg, I2C_MEMADD_SIZE_8BIT, data, length, I2C_TIMEOUT);
 
-    if (res == HAL_OK)
-        return DEVICE_OK;
-    else
-        return DEVICE_I2C_ERROR;
+    return wrapStatus(res);
 }
 
 int ZI2C::setSleep(bool sleepMode)
@@ -159,6 +156,40 @@ int ZI2C::setSleep(bool sleepMode)
     #endif
 
     return DEVICE_OK;
+}
+
+int ZI2C::reset() {
+    DMESG("reset I2C");
+
+    sda.getDigitalValue();
+    scl.getDigitalValue();
+
+    for (int i = 0; i < 16 * 16; i++)
+    {
+        scl.setDigitalValue(1);
+        target_wait_us(4);
+        scl.setDigitalValue(0);
+        target_wait_us(4);
+    }
+
+    codal_setup_pin(&sda, 0, PinMap_I2C_SDA);
+    codal_setup_pin(&scl, 0, PinMap_I2C_SCL);
+
+    return DEVICE_OK;
+}
+
+int ZI2C::wrapStatus(int halStatus)
+{
+    if (halStatus == HAL_OK) {
+        numErrors = 0;
+        return DEVICE_OK;
+    } else {
+        if (numErrors++ > 100) {
+            numErrors = 0;
+            reset();
+        }
+        return DEVICE_I2C_ERROR;
+    }
 }
 
 } // namespace codal

@@ -147,11 +147,11 @@ void enable_tim_clk(uint32_t tim) {
 void pwmout_init(pwmout_t* obj, PinName pin)
 {
     // Get the peripheral name from the pin and assign it to the object
-    obj->pwm = pinmap_peripheral(pin, PinMap_PWM);
+    obj->pwm = pinmap_peripheral(pin, PinMap_PWM, 0);
     MBED_ASSERT(obj->pwm != NC);
 
     // Get the functions (timer channel, (non)inverted) from the pin and assign it to the object
-    uint32_t function = pinmap_function(pin, PinMap_PWM);
+    uint32_t function = pinmap_function(pin, PinMap_PWM, obj->pwm);
     MBED_ASSERT(function != (uint32_t)NC);
     obj->channel = STM_PIN_CHANNEL(function);
     obj->inverted = STM_PIN_INVERTED(function);

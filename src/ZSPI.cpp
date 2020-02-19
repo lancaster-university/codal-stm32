@@ -72,8 +72,8 @@ uint32_t codal_setup_pin(Pin *p, uint32_t prev, const PinMap *map)
     if (!p)
         return 0;
     auto pin = p->name;
-    uint32_t tmp = pinmap_peripheral(pin, map);
-    pin_function(pin, pinmap_function(pin, map));
+    uint32_t tmp = pinmap_peripheral(pin, map, prev);
+    pin_function(pin, pinmap_function(pin, map, tmp));
     // pin_mode(pin, PullNone);
     CODAL_ASSERT(!prev || prev == tmp, DEVICE_HARDWARE_CONFIGURATION_ERROR);
     return tmp;
@@ -147,7 +147,7 @@ void ZSPI::complete()
 
 void ZSPI::_complete(uint32_t instance)
 {
-    LOG("SPI complete %p", instance);
+//    LOG("SPI complete %p", instance);
     for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
     {
         if (instances[i] && (uint32_t)instances[i]->spi.Instance == instance)
@@ -160,7 +160,7 @@ void ZSPI::_complete(uint32_t instance)
 
 void ZSPI::_irq(uint32_t instance)
 {
-    LOG("SPI IRQ %p", instance);
+    //LOG("SPI IRQ %p", instance);
     for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
     {
         if (instances[i] && (uint32_t)instances[i]->spi.Instance == instance)
@@ -214,8 +214,10 @@ void ZSPI::init_internal()
     if (!spi.Instance)
     {
         uint32_t instance = codal_setup_pin(sclk, 0, PinMap_SPI_SCLK);
-        instance = codal_setup_pin(miso, 0, PinMap_SPI_MISO);
-        instance = codal_setup_pin(mosi, 0, PinMap_SPI_MOSI);
+        instance = codal_setup_pin(miso, instance, PinMap_SPI_MISO);
+        instance = codal_setup_pin(mosi, instance, PinMap_SPI_MOSI);
+        if (cs)
+            instance = codal_setup_pin(cs, instance, PinMap_SPI_SSEL);
 
         spi.Instance = (SPI_TypeDef *)instance;
     }
@@ -231,8 +233,8 @@ void ZSPI::init_internal()
     bool hasRx, hasTx;
     if (isSlave)
     {
-        spi.Init.NSS = SPI_NSS_HARD_OUTPUT;
-        spi.Init.Mode = SPI_MODE_MASTER;
+        spi.Init.NSS = SPI_NSS_HARD_INPUT;
+        spi.Init.Mode = SPI_MODE_SLAVE;
         hasRx = !!mosi;
         hasTx = !!miso;
     }

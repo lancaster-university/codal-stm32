@@ -355,7 +355,7 @@ int ZPin::getAnalogValue()
     if(!(PIN_CAPABILITY_ANALOG & capability))
         return DEVICE_NOT_SUPPORTED;
 
-    uint32_t function = pinmap_function(name, PinMap_ADC);
+    uint32_t function = pinmap_function(name, PinMap_ADC, 0);
     uint8_t ch = STM_PIN_CHANNEL(function);
 
     // Move into an analogue input state if necessary.

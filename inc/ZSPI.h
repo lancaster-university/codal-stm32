@@ -44,6 +44,7 @@ class ZSPI : public codal::SPI, public codal::CodalComponent
 {
 protected:
     Pin *mosi, *miso, *sclk;
+    Pin *cs;
     uint32_t freq;
 
     SPI_HandleWithParent spi;
@@ -54,6 +55,7 @@ protected:
     void *doneHandlerArg;
 
     bool needsInit;
+    bool isSlave;
     uint8_t rxCh, txCh;
     uint16_t transferCompleteEventCode;
 
@@ -68,8 +70,9 @@ public:
      * Initialize SPI instance with given pins.
      *
      * Default setup is 1 MHz, 8 bit, mode 0.
+     * If `cs` is specified, the SPI is run in slave mode.
      */
-    ZSPI(codal::Pin &mosi, codal::Pin &miso, codal::Pin &sclk);
+    ZSPI(codal::Pin &mosi, codal::Pin &miso, codal::Pin &sclk, codal::Pin *cs = NULL);
 
     /** Set the frequency of the SPI interface
      *
@@ -115,5 +118,7 @@ public:
                               uint32_t rxSize, PVoidCallback doneHandler, void *arg);
 };
 } // namespace codal
+
+#define CODAL_SPI_SLAVE_SUPPORTED 1
 
 #endif

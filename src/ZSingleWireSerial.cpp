@@ -132,7 +132,7 @@ ZSingleWireSerial::ZSingleWireSerial(Pin& p) : DMASingleWireSerial(p)
     ZERO(hdma_rx);
 
     // only the TX pin is operable in half-duplex mode
-    uart.Instance = (USART_TypeDef *)pinmap_peripheral(p.name, PinMap_UART_TX);
+    uart.Instance = (USART_TypeDef *)pinmap_peripheral(p.name, PinMap_UART_TX, 0);
 
     enable_clock((uint32_t)uart.Instance);
 
@@ -198,7 +198,7 @@ int ZSingleWireSerial::configureTx(int enable)
     {
         uint8_t pin = (uint8_t)p.name;
         pin_mode(pin, PullNone);
-        pin_function(pin, pinmap_function(pin, PinMap_UART_TX));
+        pin_function(pin, pinmap_function(pin, PinMap_UART_TX, 0));
         uart.Init.Mode = UART_MODE_TX;
         HAL_HalfDuplex_Init(&uart);
         status |= TX_CONFIGURED;
@@ -217,7 +217,7 @@ int ZSingleWireSerial::configureRx(int enable)
     if (enable && !(status & RX_CONFIGURED))
     {
         uint8_t pin = (uint8_t)p.name;
-        pin_function(pin, pinmap_function(pin, PinMap_UART_TX));
+        pin_function(pin, pinmap_function(pin, PinMap_UART_TX, 0));
         pin_mode(pin, PullNone);
         // 5 us
         uart.Init.Mode = UART_MODE_RX;

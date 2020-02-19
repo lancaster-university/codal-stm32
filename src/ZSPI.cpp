@@ -72,8 +72,8 @@ uint32_t codal_setup_pin(Pin *p, uint32_t prev, const PinMap *map)
     if (!p)
         return 0;
     auto pin = p->name;
-    uint32_t tmp = pinmap_peripheral(pin, map);
-    pin_function(pin, pinmap_function(pin, map));
+    uint32_t tmp = pinmap_peripheral(pin, map, prev);
+    pin_function(pin, pinmap_function(pin, map, tmp));
     // pin_mode(pin, PullNone);
     CODAL_ASSERT(!prev || prev == tmp, DEVICE_HARDWARE_CONFIGURATION_ERROR);
     return tmp;
@@ -147,7 +147,7 @@ void ZSPI::complete()
 
 void ZSPI::_complete(uint32_t instance)
 {
-    LOG("SPI complete %p", instance);
+//    LOG("SPI complete %p", instance);
     for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
     {
         if (instances[i] && (uint32_t)instances[i]->spi.Instance == instance)
@@ -160,7 +160,7 @@ void ZSPI::_complete(uint32_t instance)
 
 void ZSPI::_irq(uint32_t instance)
 {
-    LOG("SPI IRQ %p", instance);
+    //LOG("SPI IRQ %p", instance);
     for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
     {
         if (instances[i] && (uint32_t)instances[i]->spi.Instance == instance)
@@ -214,8 +214,10 @@ void ZSPI::init_internal()
     if (!spi.Instance)
     {
         uint32_t instance = codal_setup_pin(sclk, 0, PinMap_SPI_SCLK);
-        instance = codal_setup_pin(miso, 0, PinMap_SPI_MISO);
-        instance = codal_setup_pin(mosi, 0, PinMap_SPI_MOSI);
+        instance = codal_setup_pin(miso, instance, PinMap_SPI_MISO);
+        instance = codal_setup_pin(mosi, instance, PinMap_SPI_MOSI);
+        if (cs)
+            instance = codal_setup_pin(cs, instance, PinMap_SPI_SSEL);
 
         spi.Instance = (SPI_TypeDef *)instance;
     }
@@ -227,29 +229,52 @@ void ZSPI::init_internal()
     spi.Init.CRCPolynomial = 7;
     spi.Init.DataSize = SPI_DATASIZE_8BIT;
     spi.Init.FirstBit = SPI_FIRSTBIT_MSB;
-    spi.Init.NSS = SPI_NSS_SOFT;
     spi.Init.TIMode = SPI_TIMODE_DISABLE;
-    spi.Init.Mode = SPI_MODE_MASTER;
+    bool hasRx, hasTx;
+    if (isSlave)
+    {
+        spi.Init.NSS = SPI_NSS_HARD_INPUT;
+        spi.Init.Mode = SPI_MODE_SLAVE;
+        hasRx = !!mosi;
+        hasTx = !!miso;
+    }
+    else
+    {
+        spi.Init.NSS = SPI_NSS_SOFT;
+        spi.Init.Mode = SPI_MODE_MASTER;
+        hasRx = !!miso;
+        hasTx = !!mosi;
+    }
 
-    if (mosi && !hdma_tx.Instance)
+    if (hasTx && !hdma_tx.Instance)
     {
         dma_init((uint32_t)spi.Instance, DMA_TX, &hdma_tx, 0);
         __HAL_LINKDMA(&spi, hdmatx, hdma_tx);
     }
 
-    if (miso && !hdma_rx.Instance)
+    if (hasRx && !hdma_rx.Instance)
     {
         dma_init((uint32_t)spi.Instance, DMA_RX, &hdma_rx, 0);
         __HAL_LINKDMA(&spi, hdmarx, hdma_rx);
     }
 
     auto pclkHz = enable_clock((uint32_t)spi.Instance);
-    for (int i = 0; baudprescaler[i + 1]; i += 2)
+
+    if (isSlave)
     {
-        spi.Init.BaudRatePrescaler = baudprescaler[i];
-        if (pclkHz / baudprescaler[i + 1] <= freq) {
-            LOG("SPI at %d Hz", pclkHz / baudprescaler[i + 1]);
-            break;
+        spi.Init.BaudRatePrescaler = 0;
+        LOG("SPI Slave init");
+    }
+    else
+    {
+        for (int i = 0; baudprescaler[i + 1]; i += 2)
+        {
+            spi.Init.BaudRatePrescaler = baudprescaler[i];
+            if (pclkHz / baudprescaler[i + 1] <= freq)
+            {
+                LOG("SPI at %d Hz", pclkHz / baudprescaler[i + 1]);
+                break;
+            }
         }
     }
 
@@ -257,11 +282,17 @@ void ZSPI::init_internal()
     CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 }
 
-ZSPI::ZSPI(Pin &mosi, Pin &miso, Pin &sclk) : codal::SPI()
+ZSPI::ZSPI(Pin &mosi, Pin &miso, Pin &sclk, Pin *cs) : codal::SPI()
 {
     this->mosi = &mosi;
     this->miso = &miso;
     this->sclk = &sclk;
+    this->cs = cs;
+
+    if (this->cs)
+        this->isSlave = true;
+    else
+        this->isSlave = false;
 
     ZERO(spi);
     ZERO(hdma_tx);

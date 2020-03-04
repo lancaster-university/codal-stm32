@@ -74,8 +74,10 @@ void ZSingleWireSerial::_complete(uint32_t instance, uint32_t mode)
                 case SWS_EVT_ERROR:
                     err = HAL_UART_GetError(&instances[i]->uart);
 
+                    if (instances[i]->cb)
+                        instances[i]->cb(SWS_EVT_DATA_RECEIVED);
                     // DMESG("HALE %d", err);
-                    if (err == HAL_UART_ERROR_FE)
+                    else if (err == HAL_UART_ERROR_FE)
                         // a uart error disable any previously configured DMA transfers, we will always get a framing error...
                         // quietly restart...
                         HAL_UART_Receive_DMA(&instances[i]->uart, instances[i]->buf, instances[i]->bufLen);

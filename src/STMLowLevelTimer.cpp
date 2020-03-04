@@ -99,6 +99,8 @@ STMLowLevelTimer::STMLowLevelTimer(TIM_TypeDef* timer, uint8_t irqn) : LowLevelT
 #endif
 
     instances[instance_index] = this;
+
+    setIRQPriority(2);
 }
 
 int STMLowLevelTimer::setIRQPriority(int priority)

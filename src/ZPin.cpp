@@ -121,11 +121,9 @@ void ZPin::disconnect()
         volatile uint32_t *ptr = &SYSCFG->EXTICR[pin >> 2];
 #endif
         int shift = (pin & 3) * 4;
-        int port = (int)name >> 4;
 
         // take over line for ourselves
         *ptr = (*ptr & ~(0xf << shift));
-
 
         if (this->evCfg)
             delete this->evCfg;
@@ -179,6 +177,12 @@ int ZPin::setDigitalValue(int value)
     if (value < 0 || value > 1)
         return DEVICE_INVALID_PARAMETER;
 
+    // first set the value, to avoid glitch
+    if (value)
+        GPIO_PORT()->BSRR = GPIO_PIN();
+    else
+        GPIO_PORT()->BSRR = GPIO_PIN() << 16;
+
     // Move into a Digital input state if necessary.
     if (!(status & IO_STATUS_DIGITAL_OUT))
     {
@@ -186,8 +190,6 @@ int ZPin::setDigitalValue(int value)
         pin_function(name, STM_PIN_DATA(STM_PIN_OUTPUT, GPIO_NOPULL, 0));
         status |= IO_STATUS_DIGITAL_OUT;
     }
-
-    HAL_GPIO_WritePin(GPIO_PORT(), GPIO_PIN(), (GPIO_PinState)value);
 
     return DEVICE_OK;
 }
@@ -215,7 +217,7 @@ int ZPin::getDigitalValue()
         status |= IO_STATUS_DIGITAL_IN;
     }
 
-    return HAL_GPIO_ReadPin(GPIO_PORT(), GPIO_PIN());
+    return GPIO_PORT()->IDR & GPIO_PIN() ? 1 : 0;
 }
 
 /**
@@ -810,4 +812,51 @@ int ZPin::eventOn(int eventType)
 
     return DEVICE_OK;
 }
+
+#define LOG(v) GPIOA->BSRR = (v ? 1 : 0x10000)
+
+__attribute__((noinline))
+static void get_and_clr(GPIO_TypeDef *gpio, uint32_t pin, uint32_t mode) {
+    gpio->BSRR = pin << 16;
+    LOG(1);
+    if (gpio->IDR & pin)
+        gpio->MODER = mode;
+    LOG(0);
+}
+
+__attribute__((noinline))
+static void get_and_set(GPIO_TypeDef *gpio, uint32_t pin, uint32_t mode) {
+    gpio->BSRR = pin;
+    if (~(gpio->IDR & pin))
+        gpio->MODER = mode;
+}
+
+int ZPin::getAndSetDigitalValue(int value)
+{
+    uint32_t mask = GPIO_PIN();
+    GPIO_TypeDef *port = GPIO_PORT();
+    uint32_t modermask = 3 << ((uint32_t)name & 0xf) * 2;
+    uint32_t moderout = 1 << ((uint32_t)name & 0xf) * 2;
+
+    if ((port->MODER & modermask) == 0)
+    {
+        uint32_t mode = port->MODER | moderout;
+        // pin in input mode, do the "atomic" set
+        if (value)
+            get_and_set(port, mask, mode);
+        else
+            get_and_clr(port, mask, mode);
+
+        if (port->MODER & moderout) {
+            disconnect();
+            setDigitalValue(value); // make sure 'status' is updated
+            return 0;
+        } else {
+            return DEVICE_BUSY;
+        }
+    }
+
+    return 0;
+}
+
 } // namespace codal

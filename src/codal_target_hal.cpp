@@ -16,9 +16,8 @@ void target_enable_irq()
 
 void target_disable_irq()
 {
+    __disable_irq();
     irq_disabled++;
-    if (irq_disabled == 1)
-        __disable_irq();
 }
 
 void target_wait_for_event()

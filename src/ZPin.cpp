@@ -813,7 +813,8 @@ int ZPin::eventOn(int eventType)
     return DEVICE_OK;
 }
 
-#define LOG(v) GPIOA->BSRR = (v ? 1 : 0x10000)
+//#define LOG(v) GPIOA->BSRR = (v ? 1 : 0x10000)
+#define LOG(v) ((void)0)
 
 __attribute__((noinline))
 static void get_and_clr(GPIO_TypeDef *gpio, uint32_t pin, uint32_t mode) {

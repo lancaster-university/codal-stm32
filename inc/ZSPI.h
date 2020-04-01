@@ -56,6 +56,7 @@ protected:
 
     bool needsInit;
     bool isSlave;
+    bool hasRx, hasTx;
     uint8_t rxCh, txCh;
     uint16_t transferCompleteEventCode;
 

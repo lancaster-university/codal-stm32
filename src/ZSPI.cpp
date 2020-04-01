@@ -230,7 +230,6 @@ void ZSPI::init_internal()
     spi.Init.DataSize = SPI_DATASIZE_8BIT;
     spi.Init.FirstBit = SPI_FIRSTBIT_MSB;
     spi.Init.TIMode = SPI_TIMODE_DISABLE;
-    bool hasRx, hasTx;
     if (isSlave)
     {
         spi.Init.NSS = SPI_NSS_HARD_INPUT;
@@ -354,6 +353,9 @@ int ZSPI::startTransfer(const uint8_t *txBuffer, uint32_t txSize, uint8_t *rxBuf
     int res;
 
     init_internal();
+
+    if (!hasRx) rxSize = 0;
+    if (!hasTx) txSize = 0;
 
     LOG("SPI start %p/%d %p/%d D=%p", txBuffer, txSize, rxBuffer, rxSize, doneHandler);
 

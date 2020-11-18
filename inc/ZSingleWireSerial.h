@@ -4,8 +4,8 @@
 #include "Pin.h"
 #include "CodalComponent.h"
 #include "CodalConfig.h"
-#include "SingleWireSerial.h"
-#include "JACDAC.h"
+#include "DMASingleWireSerial.h"
+#include "codal_target_hal.h"
 #include "pinmap.h"
 #include "MemberFunctionCallback.h"
 
@@ -32,7 +32,7 @@ namespace codal
 
         static void _complete(uint32_t instance, uint32_t mode);
 
-        JDPacket* currentBuffer;
+        uint8_t* currentBuffer;
         uint32_t currentBufferIndex;
 
         // only works with a TX uart pin on STM.

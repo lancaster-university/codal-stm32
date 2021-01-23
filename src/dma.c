@@ -118,7 +118,7 @@ static DMA_HandleTypeDef *handles[NUM_STREAMS * NUM_DMA];
 
 static void irq_callback(int id)
 {
-//    LOG("DMA irq %d", id);
+    //    LOG("DMA irq %d", id);
     if (handles[id])
         HAL_DMA_IRQHandler(handles[id]);
 }
@@ -191,7 +191,7 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
         obj->Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
         obj->Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
     }
-    obj->Init.Mode = DMA_NORMAL;
+    obj->Init.Mode = flags & DMA_FLAG_CIRCULAR ? DMA_CIRCULAR : DMA_NORMAL;
     obj->Init.Priority = rxdx == DMA_RX ? DMA_PRIORITY_HIGH : DMA_PRIORITY_LOW;
 
     if (map->dma == 1)

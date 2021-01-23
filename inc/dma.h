@@ -17,6 +17,8 @@ extern "C" {
 #define DMA_FLAG_2BYTE 1
 #define DMA_FLAG_4BYTE 2
 
+#define DMA_FLAG_CIRCULAR 4
+
 #define DMA_FLAG_PRI(n) ((n) << 8)
 
 #define DMA_FLAG_DEFAULT DMA_FLAG_PRI(1)

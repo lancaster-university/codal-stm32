@@ -139,7 +139,7 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
         obj->Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
         obj->Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
     }
-    obj->Init.Mode = DMA_NORMAL;
+    obj->Init.Mode = flags & DMA_FLAG_CIRCULAR ? DMA_CIRCULAR : DMA_NORMAL;
     obj->Init.Priority = rxdx == DMA_RX ? DMA_PRIORITY_HIGH : DMA_PRIORITY_LOW;
 
     if (map->channel <= 10)

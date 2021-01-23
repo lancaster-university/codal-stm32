@@ -17,9 +17,11 @@ extern "C" {
 #define DMA_FLAG_2BYTE 1
 #define DMA_FLAG_4BYTE 2
 
-int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flags);
+#define DMA_FLAG_PRI(n) ((n) << 8)
 
-void dma_set_irq_priority(uint32_t peripheral, uint8_t rxdx, int priority);
+#define DMA_FLAG_DEFAULT DMA_FLAG_PRI(1)
+
+int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flags);
 
 #ifdef __cplusplus
 }

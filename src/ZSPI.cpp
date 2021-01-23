@@ -247,13 +247,13 @@ void ZSPI::init_internal()
 
     if (hasTx && !hdma_tx.Instance)
     {
-        dma_init((uint32_t)spi.Instance, DMA_TX, &hdma_tx, 0);
+        dma_init((uint32_t)spi.Instance, DMA_TX, &hdma_tx, DMA_FLAG_DEFAULT);
         __HAL_LINKDMA(&spi, hdmatx, hdma_tx);
     }
 
     if (hasRx && !hdma_rx.Instance)
     {
-        dma_init((uint32_t)spi.Instance, DMA_RX, &hdma_rx, 0);
+        dma_init((uint32_t)spi.Instance, DMA_RX, &hdma_rx, DMA_FLAG_DEFAULT);
         __HAL_LINKDMA(&spi, hdmarx, hdma_rx);
     }
 

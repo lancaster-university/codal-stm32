@@ -7,8 +7,8 @@
 #define NUM_STREAMS 8
 #define NUM_DMA 2
 
-//#define LOG DMESG
-#define LOG(...) ((void)0)
+#define LOG DMESG
+//#define LOG(...) ((void)0)
 
 typedef struct
 {
@@ -118,7 +118,7 @@ static DMA_HandleTypeDef *handles[NUM_STREAMS * NUM_DMA];
 
 static void irq_callback(int id)
 {
-    LOG("DMA irq %d", id);
+//    LOG("DMA irq %d", id);
     if (handles[id])
         HAL_DMA_IRQHandler(handles[id]);
 }
@@ -142,20 +142,6 @@ DEFIRQ(DMA2_Stream4_IRQHandler, NUM_STREAMS + 4)
 DEFIRQ(DMA2_Stream5_IRQHandler, NUM_STREAMS + 5)
 DEFIRQ(DMA2_Stream6_IRQHandler, NUM_STREAMS + 6)
 DEFIRQ(DMA2_Stream7_IRQHandler, NUM_STREAMS + 7)
-
-int lookup_dma(uint32_t peripheral, uint8_t rxdx)
-{
-    int id = -1;
-    const DmaMap *map;
-
-    for (map = TheDmaMap; map->peripheral; map++)
-    {
-        if (map->peripheral == peripheral && map->rxdx == rxdx)
-            id = (map->dma - 1) * NUM_STREAMS + map->stream;
-    }
-
-    return id;
-}
 
 int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flags)
 {
@@ -216,24 +202,13 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
     int res = HAL_DMA_Init(obj);
     CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
-    LOG("DMA init %p irq=%d ch=%d str=%d", obj->Instance, streams[id].irqn, map->channel,
-        map->stream);
+    LOG("DMA init %p irq=%d ch=%d str=%d pri=%d", obj->Instance, streams[id].irqn, map->channel,
+        map->stream, (flags >> 8) & 0xff);
 
-    NVIC_SetPriority(streams[id].irqn, 1);
+    NVIC_SetPriority(streams[id].irqn, (flags >> 8) & 0xff);
     NVIC_EnableIRQ(streams[id].irqn);
 
     return 0;
-}
-
-void dma_set_irq_priority(uint32_t peripheral, uint8_t rxdx, int priority)
-{
-    int id = lookup_dma(peripheral, rxdx);
-
-    CODAL_ASSERT(id != -1, DEVICE_HARDWARE_CONFIGURATION_ERROR);
-
-    NVIC_DisableIRQ(streams[id].irqn);
-    NVIC_SetPriority(streams[id].irqn, priority);
-    NVIC_EnableIRQ(streams[id].irqn);
 }
 
 #endif

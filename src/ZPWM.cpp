@@ -46,7 +46,7 @@ ZPWM::ZPWM(ZPin &pin, DataSource &source, int sampleRate, uint16_t id)
     // Configure hardware for requested sample rate.
     setSampleRate(sampleRate);
 
-    dma_init((uint32_t)tim.Instance, this->channel + DMA_TIM_CH1 - 1, &hdma_left, DMA_FLAG_4BYTE);
+    dma_init((uint32_t)tim.Instance, this->channel + DMA_TIM_CH1 - 1, &hdma_left, DMA_FLAG_4BYTE | DMA_FLAG_PRI(1));
     __HAL_LINKDMA(&tim, hdma[this->channel], hdma_left);
 
     // Enable the PWM module

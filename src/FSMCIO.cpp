@@ -107,7 +107,7 @@ FSMCIO::FSMCIO(uint32_t flags, PinNumber wr, PinNumber rd)
 
     FSMC_Bank1->BTCR[0] |= FSMC_BCR1_MBKEN;
 
-    dma_init(0, DMA_TX, &hdma, 0);
+    dma_init(0, DMA_TX, &hdma, DMA_FLAG_PRI(3));
 }
 
 #define FSMC_DATA *((volatile uint8_t *)0x60000000)

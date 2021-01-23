@@ -11,14 +11,14 @@
 #define ZPWM_DEFAULT_FREQUENCY 44100
 #endif
 
-namespace codal {
+namespace codal
+{
 
 class ZPWM : public CodalComponent, public DataSink
 {
 private:
     TIM_HandleTypeDef tim;
     DMA_HandleTypeDef hdma_left;
-    DMA_HandleTypeDef hdma_right;
 
     bool enabled;
     bool active;
@@ -27,14 +27,13 @@ private:
     int channel;
 
     int repCount;
-    uint32_t *buf0, *buf1;
-    uint32_t bufCnt; // size of buffer is repCount*bufCnt*4 bytes
+    uint32_t *buf0;
     uint32_t outptr;
 
     ZPin &pin;
 
     void fillBuffer(uint32_t *buf);
-    void nextBuffer();
+    static void XferHalfCpltCallback(DMA_HandleTypeDef *hdma);
 
 public:
     // The stream component that is serving our data
@@ -63,7 +62,7 @@ public:
     int getSampleRate();
 
     /**
-     * Determine the maximum unsigned vlaue that can be loaded into the PWM data values, for the
+     * Determine the maximum unsigned value that can be loaded into the PWM data values, for the
      * current frequency configuration.
      */
     int getSampleRange();
@@ -77,7 +76,7 @@ public:
     /**
      * Interrupt callback when playback of DMA buffer has completed
      */
-    void irq();
+    void irq(bool isHalf);
 
     /**
      * Enable this component
@@ -97,6 +96,6 @@ public:
     virtual int setSleep(bool sleepMode);
 };
 
-}
+} // namespace codal
 
 #endif

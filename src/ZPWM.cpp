@@ -9,8 +9,9 @@ using namespace codal;
 static ZPWM *instances[4];
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 
-ZPWM::ZPWM(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) 
-    : pin(pin), upstream(source)
+#define HALF_BUFFER_SIZE 128
+
+ZPWM::ZPWM(ZPin &pin, DataSource &source, int sampleRate, uint16_t id) : pin(pin), upstream(source)
 {
     for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
     {
@@ -21,9 +22,7 @@ ZPWM::ZPWM(ZPin &pin, DataSource &source, int sampleRate, uint16_t id)
         }
     }
 
-    buf0 = NULL;
-    buf1 = NULL;
-    bufCnt = 0;
+    buf0 = new uint32_t[HALF_BUFFER_SIZE * 2];
     outptr = 0;
 
     // use pin api, so that the pin knows we're in PWM mode
@@ -46,8 +45,11 @@ ZPWM::ZPWM(ZPin &pin, DataSource &source, int sampleRate, uint16_t id)
     // Configure hardware for requested sample rate.
     setSampleRate(sampleRate);
 
-    dma_init((uint32_t)tim.Instance, this->channel + DMA_TIM_CH1 - 1, &hdma_left, DMA_FLAG_4BYTE | DMA_FLAG_PRI(1));
+    dma_init((uint32_t)tim.Instance, this->channel + DMA_TIM_CH1 - 1, &hdma_left,
+             DMA_FLAG_CIRCULAR | DMA_FLAG_4BYTE | DMA_FLAG_PRI(1));
     __HAL_LINKDMA(&tim, hdma[this->channel], hdma_left);
+
+    hdma_left.XferHalfCpltCallback = XferHalfCpltCallback;
 
     // Enable the PWM module
     enable();
@@ -58,7 +60,7 @@ ZPWM::ZPWM(ZPin &pin, DataSource &source, int sampleRate, uint16_t id)
 
 int ZPWM::setSleep(bool sleepMode)
 {
-    if(sleepMode)
+    if (sleepMode)
     {
         __HAL_TIM_SET_COMPARE(&tim, channel, 0);
     }
@@ -108,20 +110,11 @@ int ZPWM::setSampleRate(int frequency)
     int period_ticks = clock_frequency / (prescaler * frequency);
 
     CODAL_ASSERT(period_ticks >= 256, DEVICE_HARDWARE_CONFIGURATION_ERROR);
-    CODAL_ASSERT(period_ticks <= 512, DEVICE_HARDWARE_CONFIGURATION_ERROR); // in reality it should be 260 or so
+    CODAL_ASSERT(period_ticks <= 512,
+                 DEVICE_HARDWARE_CONFIGURATION_ERROR); // in reality it should be 260 or so
 
-    tim.Init.Period = period_ticks;
-    if (IS_TIM_ADVANCED_INSTANCE(tim.Instance) && false)
-    {
-        // this doesn't seem to work - it indeed repeats values, but it seem to trigger
-        // DMA for every cycle, so only every 1 of prescaler words in memory is actually used
-        tim.Init.RepetitionCounter = prescaler - 1; // TIM1 or TIM8 only
-        repCount = 1;
-    }
-    else
-    {
-        repCount = prescaler;
-    }
+    tim.Init.Period = period_ticks * prescaler;
+    repCount = prescaler;
 
     // Update our internal record to reflect an accurate (probably rounded) samplerate.
     sampleRate = (clock_frequency / prescaler) / period_ticks;
@@ -149,7 +142,19 @@ extern "C" void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
     {
         if (instances[i] && &instances[i]->tim == htim)
         {
-            instances[i]->irq();
+            instances[i]->irq(false);
+        }
+    }
+}
+
+void ZPWM::XferHalfCpltCallback(DMA_HandleTypeDef *hdma)
+{
+    // TODO use offsetof?
+    for (unsigned i = 0; i < ARRAY_SIZE(instances); ++i)
+    {
+        if (instances[i] && &instances[i]->hdma_left == hdma)
+        {
+            instances[i]->irq(true);
         }
     }
 }
@@ -162,15 +167,21 @@ int ZPWM::pullRequest()
     dataReady++;
 
     if (!active)
-        nextBuffer();
+    {
+        active = true;
+        fillBuffer(buf0);
+        fillBuffer(buf0 + HALF_BUFFER_SIZE);
+        auto ch = channels[this->channel - 1];
+        auto res = HAL_TIM_PWM_Start_DMA(&tim, ch, buf0, HALF_BUFFER_SIZE * 2);
+        CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
+    }
 
     return DEVICE_OK;
 }
 
 void ZPWM::fillBuffer(uint32_t *buf)
 {
-    auto left = bufCnt;
-    auto buflen = buf++;
+    auto left = HALF_BUFFER_SIZE;
 
     while (left)
     {
@@ -178,17 +189,10 @@ void ZPWM::fillBuffer(uint32_t *buf)
 
         if (len <= 0)
         {
-            if (!dataReady)
+            if (!active)
                 break;
             dataReady--;
-            if (!active) {
-                // pull() might invoke pullReq(), which would call nextBuffer() if not active, and back here
-                active = true;
-                output = upstream.pull();
-                active = false;
-            } else {
-                output = upstream.pull();
-            }
+            output = upstream.pull();
             outptr = 0;
             len = output.length();
             if (len == 0)
@@ -203,77 +207,29 @@ void ZPWM::fillBuffer(uint32_t *buf)
 
         for (uint32_t i = 0; i < num; ++i)
         {
-            uint32_t s = src[i] >> 2;
-            auto n = repCount;
-            while (n--)
-                *buf++ = s;
+            *buf++ = (src[i] * repCount) >> 2;
         }
 
         left -= num;
     }
 
-    *buflen = bufCnt - left;
+    while (left)
+    {
+        *buf++ = 0;
+        left--;
+    }
 }
-
-void ZPWM::nextBuffer()
-{
-    if (!buf0)
-    {
-        if (tim.Init.RepetitionCounter)
-            bufCnt = 300 / (1 + tim.Init.RepetitionCounter);
-        else
-            bufCnt = 300 / repCount;
-        buf0 = new uint32_t[bufCnt * repCount + 1];
-        buf1 = new uint32_t[bufCnt * repCount + 1];
-        buf0[0] = 0;
-        buf1[0] = 0;
-    }
-
-    // do we have something to send?
-    // we need to start sending, before we start filling buffers
-    // to avoid gaps
-    auto buf = buf0;
-    if (!*buf)
-        buf = buf1;
-    if (*buf)
-    {
-        auto ch = channels[this->channel - 1];
-        auto res = HAL_TIM_PWM_Start_DMA(&tim, ch, buf + 1, *buf * repCount);
-        // no longer something to send
-        *buf = 0;
-        CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
-        active = true;
-    }
-    else
-    {
-        active = false;
-        buf = NULL;
-    }
-
-    // if buf0 wasn't what we're sending and it's empty, fill it
-    if (buf != buf0 && !*buf0)
-        fillBuffer(buf0);
-    // ditto for buf1
-    if (buf != buf1 && !*buf1)
-        fillBuffer(buf1);
-    
-    // if we didn't start playing and now have some data to play, try again
-    if (buf == NULL && *buf0)
-        nextBuffer();
-
-    // if we're no longer active, make sure to set the PWM to 0% duty cycle
-    // not to leak electrons
-    if (!active)
-        __HAL_TIM_SET_COMPARE(&tim, channel, 0);
-} 
 
 /**
  * Base implementation of a DMA callback
  */
-void ZPWM::irq()
+void ZPWM::irq(bool isHalf)
 {
     // once the sequence has finished playing, load up the next buffer.
-    nextBuffer();
+    if (isHalf)
+        fillBuffer(buf0);
+    else
+        fillBuffer(buf0 + HALF_BUFFER_SIZE);
 }
 
 /**
@@ -290,5 +246,7 @@ void ZPWM::enable()
 void ZPWM::disable()
 {
     enabled = false;
+    __HAL_TIM_SET_COMPARE(&tim, channel, 0); // ???
     __HAL_TIM_DISABLE(&tim);
+    // TODO disable DMA
 }

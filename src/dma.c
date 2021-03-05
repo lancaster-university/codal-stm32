@@ -171,9 +171,9 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
     obj->Instance = streams[id].instance;
 
     obj->Init.Channel = channels[map->channel];
-    obj->Init.Direction = peripheral == 0
-                              ? DMA_MEMORY_TO_MEMORY
-                              : rxdx == DMA_RX ? DMA_PERIPH_TO_MEMORY : DMA_MEMORY_TO_PERIPH;
+    obj->Init.Direction = peripheral == 0  ? DMA_MEMORY_TO_MEMORY
+                          : rxdx == DMA_RX ? DMA_PERIPH_TO_MEMORY
+                                           : DMA_MEMORY_TO_PERIPH;
     obj->Init.PeriphInc = peripheral == 0 ? DMA_PINC_ENABLE : DMA_PINC_DISABLE;
     obj->Init.MemInc = DMA_MINC_ENABLE;
     if (flags & DMA_FLAG_2BYTE)
@@ -192,7 +192,11 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
         obj->Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
     }
     obj->Init.Mode = flags & DMA_FLAG_CIRCULAR ? DMA_CIRCULAR : DMA_NORMAL;
-    obj->Init.Priority = rxdx == DMA_RX ? DMA_PRIORITY_HIGH : DMA_PRIORITY_LOW;
+    obj->Init.Priority = rxdx == DMA_RX ? DMA_PRIORITY_HIGH : DMA_PRIORITY_MEDIUM;
+
+    int irqpri = (flags >> 8) & 0xff;
+    if (irqpri >= 2)
+        obj->Init.Priority = DMA_PRIORITY_LOW;
 
     if (map->dma == 1)
         __HAL_RCC_DMA1_CLK_ENABLE();
@@ -203,9 +207,9 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
     CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
     LOG("DMA init %p irq=%d ch=%d str=%d pri=%d", obj->Instance, streams[id].irqn, map->channel,
-        map->stream, (flags >> 8) & 0xff);
+        map->stream, irqpri);
 
-    NVIC_SetPriority(streams[id].irqn, (flags >> 8) & 0xff);
+    NVIC_SetPriority(streams[id].irqn, irqpri);
     NVIC_EnableIRQ(streams[id].irqn);
 
     return 0;

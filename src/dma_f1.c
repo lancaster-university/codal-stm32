@@ -46,7 +46,6 @@ MBED_WEAK const DmaMap TheDmaMap[] = //
      {SPI2_BASE, DMA_RX, 4},
      {SPI2_BASE, DMA_TX, 5},
 
-
      {USART3_BASE, DMA_TX, 2},
      {USART3_BASE, DMA_RX, 3},
      {USART1_BASE, DMA_TX, 4},
@@ -61,7 +60,7 @@ MBED_WEAK const DmaMap TheDmaMap[] = //
      {UART4_BASE, DMA_RX, 13},
      {UART4_BASE, DMA_TX, 15},
      {DAC_BASE, DMA_TX, 13},
-#endif     
+#endif
 
      // The end
      {0, 0, 0}};
@@ -140,7 +139,11 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
         obj->Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
     }
     obj->Init.Mode = flags & DMA_FLAG_CIRCULAR ? DMA_CIRCULAR : DMA_NORMAL;
-    obj->Init.Priority = rxdx == DMA_RX ? DMA_PRIORITY_HIGH : DMA_PRIORITY_LOW;
+    obj->Init.Priority = rxdx == DMA_RX ? DMA_PRIORITY_HIGH : DMA_PRIORITY_MEDIUM;
+
+    int irqpri = (flags >> 8) & 0xff;
+    if (irqpri >= 2)
+        obj->Init.Priority = DMA_PRIORITY_LOW;
 
     if (map->channel <= 10)
         __HAL_RCC_DMA1_CLK_ENABLE();
@@ -155,7 +158,7 @@ int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flag
     LOG("DMA init %p irq=%d ch=%d str=%d", obj->Instance, streams[id].irqn, map->channel,
         map->stream);
 
-    NVIC_SetPriority(streams[id].irqn, (flags >> 8) & 0xff);
+    NVIC_SetPriority(streams[id].irqn, irqpri);
     NVIC_EnableIRQ(streams[id].irqn);
 
     return 0;

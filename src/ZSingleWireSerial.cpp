@@ -74,9 +74,10 @@ void ZSingleWireSerial::_complete(uint32_t instance, uint32_t mode)
                 case SWS_EVT_ERROR:
                     err = HAL_UART_GetError(&instances[i]->uart);
 
+                    // DMESG("HALE %d", err);
+
                     if (instances[i]->cb)
                         instances[i]->cb(SWS_EVT_DATA_RECEIVED);
-                    // DMESG("HALE %d", err);
                     else if (err == HAL_UART_ERROR_FE)
                         // a uart error disable any previously configured DMA transfers, we will always get a framing error...
                         // quietly restart...
@@ -291,6 +292,9 @@ int ZSingleWireSerial::sendDMA(uint8_t* data, int len)
     this->bufLen = len;
 
     int res = HAL_UART_Transmit_DMA(&uart, data, len);
+    // ignore FIFO errors - they may be caused by DMA reqs fighting each other
+    // eg screen DMA fighting UART DMA
+    uart.hdmatx->Instance->FCR &= ~DMA_IT_FE;
 
     CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);
 
@@ -306,6 +310,8 @@ int ZSingleWireSerial::receiveDMA(uint8_t* data, int len)
     this->bufLen = len;
 
     int res = HAL_UART_Receive_DMA(&uart, data, len);
+    // see comment in sendDMA()
+     uart.hdmarx->Instance->FCR &= ~DMA_IT_FE;
 
     // DMESG("RES %d",res);
     CODAL_ASSERT(res == HAL_OK, DEVICE_HARDWARE_CONFIGURATION_ERROR);

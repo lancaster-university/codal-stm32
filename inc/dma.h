@@ -21,7 +21,7 @@ extern "C" {
 
 #define DMA_FLAG_PRI(n) ((n) << 8)
 
-#define DMA_FLAG_DEFAULT DMA_FLAG_PRI(1)
+#define DMA_FLAG_DEFAULT DMA_FLAG_PRI(2)
 
 int dma_init(uint32_t peripheral, uint8_t rxdx, DMA_HandleTypeDef *obj, int flags);
 

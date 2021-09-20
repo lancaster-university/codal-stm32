@@ -24,6 +24,9 @@ DEALINGS IN THE SOFTWARE.
 
 #include "CodalUSB.h"
 
+// usb_assert(this != NULL) gets optimized away
+#define ASSERT_THIS_NOT_NULL() usb_assert(((uint32_t)this >> 8) != 0)
+
 #if CONFIG_ENABLED(DEVICE_USB)
 #include "pinmap.h"
 #include "PeripheralPins.h"
@@ -313,13 +316,13 @@ void UsbEndpointOut::startRead()
 
 int UsbEndpointOut::read(void *dst, int maxlen)
 {
-    usb_assert(this != NULL);
+    ASSERT_THIS_NOT_NULL();
 
     int packetSize = userdata & 0xff;
 
     if (packetSize)
     {
-        // LOG("USBRead(%d) => %d bytes", ep, packetSize);
+        DBG("USBRead(%d) => %d bytes %x", ep, packetSize, userdata);
         userdata -= packetSize;
         // Note that we shall discard any excessive data
         if (packetSize > maxlen)
@@ -369,7 +372,7 @@ int UsbEndpointIn::write(const void *src, int len)
     DBG("outer write %p/%d", src, len);
 
     // this happens when someone tries to write before USB is initialized
-    usb_assert(this != NULL);
+    ASSERT_THIS_NOT_NULL();
 
     int zlp = !(flags & USB_EP_FLAG_NO_AUTO_ZLP);
 

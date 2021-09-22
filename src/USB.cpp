@@ -170,8 +170,14 @@ extern "C"
         USBSetup stp;
         memcpy(&stp, &hpcd->Setup, sizeof(stp));
         // USB_EP0_OutStart(pcd.Instance, pcd.Init.dma_enable, (uint8_t *)pcd.Setup);
+
+        // if there's a data-phase upcoming, start read
+        // note that this data will go nowhere - there's currently no way to read it,
+        // but at least it fixes keyboard hid driver
+        if (!(stp.bmRequestType & USB_REQ_DEVICETOHOST) && stp.wLength) 
+            CodalUSB::usbInstance->ctrlOut->startRead();
+
         CodalUSB::usbInstance->setupRequest(stp);
-        // CodalUSB::usbInstance->ctrlOut->startRead();
     }
 
     void HAL_PCD_DataOutStageCallback(PCD_HandleTypeDef *hpcd, uint8_t epnum)
